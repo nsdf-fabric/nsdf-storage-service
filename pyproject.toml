@@ -1,0 +1,34 @@
+[project]
+name = "nsdf-storage-service"
+version = "0.1.0"
+description = "INTERSECT Storage Service for NSDF — listens for CHESS measurement events"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "BSD-3-Clause"}
+
+dependencies = [
+    "intersect_sdk[amqp]>=0.9.0,<0.10.0",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+nsdf-storage-service = "nsdf_storage_service.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.1.0",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nsdf_storage_service"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
