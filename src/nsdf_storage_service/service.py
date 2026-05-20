@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from intersect_sdk import IntersectBaseCapabilityImplementation, intersect_message, intersect_status
 
 from .data_models import NewMeasurementData

@@ -35,3 +35,9 @@ def test_new_measurement_delegates_to_handler():
         endpoint_name="new_measurement",
         payload={"labx": 1.0, "labz": 2.0, "center_value": 3.0},
     )
+
+
+def test_new_measurement_annotation_is_resolved_for_intersect_sdk():
+    annotation = NsdfStorageCapability.new_measurement.__annotations__["measurement"]
+
+    assert annotation is NewMeasurementData
