@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from intersect_sdk import INTERSECT_RESPONSE_VALUE, IntersectClientCallback
+from intersect_sdk import INTERSECT_RESPONSE_VALUE
 
 from .data_models import NewMeasurementData
 
@@ -25,10 +25,10 @@ def handle_new_measurement(
     *,
     source: str,
     capability_name: str,
-    event_name: str,
+    endpoint_name: str,
     payload: INTERSECT_RESPONSE_VALUE,
 ) -> None:
-    """Handle one measurement event.
+    """Handle one measurement message.
 
     This intentionally only prints the payload for now. Replace this function when the
     storage service begins moving payloads to an S3 bucket.
@@ -40,7 +40,7 @@ def handle_new_measurement(
     print(f"time_utc:    {now}")
     print(f"source:      {source}")
     print(f"capability:  {capability_name}")
-    print(f"event:       {event_name}")
+    print(f"endpoint:    {endpoint_name}")
     print("payload:")
 
     if isinstance(normalized_payload, (dict, list)):
@@ -49,19 +49,3 @@ def handle_new_measurement(
         print(normalized_payload)
 
     print("=" * 100, flush=True)
-
-
-def event_callback(
-    source: str,
-    capability_name: str,
-    event_name: str,
-    payload: INTERSECT_RESPONSE_VALUE,
-) -> IntersectClientCallback | None:
-    """INTERSECT SDK event callback for subscribed measurement events."""
-    handle_new_measurement(
-        source=source,
-        capability_name=capability_name,
-        event_name=event_name,
-        payload=payload,
-    )
-    return None

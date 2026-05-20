@@ -1,8 +1,9 @@
 # NSDF Storage Service
 
-INTERSECT Storage Service for NSDF. Listens for CHESS `new_measurement` events
-and prints each payload it receives. The payload handler is intentionally small
-so it can later be replaced with logic that moves payloads to an S3 bucket.
+INTERSECT Storage Service for NSDF. Receives directed CHESS `new_measurement`
+messages through an INTERSECT service endpoint and prints each payload it
+receives. The payload handler is intentionally small so it can later be replaced
+with logic that moves payloads to an S3 bucket.
 
 ## Architecture Role
 
@@ -10,10 +11,10 @@ This service is the **INTERSECT Storage Service** in the CHESS autonomous
 experiment loop:
 
 1. `intersect-chess-data-service` monitors reduced CHESS data sources.
-2. The data-service emits an INTERSECT `new_measurement` event containing
+2. A caller sends this service a directed INTERSECT message containing
    `{labx, labz, center_value}`.
-3. **This service** subscribes to that event through the INTERSECT SDK client
-   event API while also registering its own `nsdf_storage` capability.
+3. **This service** registers an `nsdf_storage` capability with a
+   `new_measurement(NewMeasurementData)` message endpoint.
 4. The current handler prints the payload. A future handler will move the
    payload to an S3 bucket.
 
@@ -54,19 +55,20 @@ nsdf-storage-service
 ### INTERSECT Message Endpoints
 
 - `describe()` - Returns a short description of the service behavior
-- `status()` - Returns `"Listening"` or `"Idle"`
+- `new_measurement(NewMeasurementData)` - Receives and prints a CHESS
+  measurement payload
+- `status()` - Returns `"Up"`
 
-### INTERSECT Event Subscription
+Callers should send a directed INTERSECT message to capability `nsdf_storage`,
+endpoint `new_measurement`, with payload:
 
-By default, the service listens for:
-
-- Source hierarchy:
-  `chess.chess-facility.data-egress-system.data-egress-subsystem.chess-data-egress-service`
-- Capability: `chess_data_egress`
-- Event: `new_measurement`
-- Payload: `{"labx": float, "labz": float, "center_value": float}`
-
-These values can be changed in the `source-event` section of the config file.
+```json
+{
+  "labx": 1.0,
+  "labz": 2.0,
+  "center_value": 3.0
+}
+```
 
 ## Configuration
 
@@ -91,39 +93,26 @@ The local config follows the same broker shape as `intersect-chess-data-service`
     "system": "storage-system",
     "subsystem": "storage-subsystem",
     "service": "nsdf-storage-service"
-  },
-  "source-event": {
-    "hierarchy": {
-      "organization": "chess",
-      "facility": "chess-facility",
-      "system": "data-egress-system",
-      "subsystem": "data-egress-subsystem",
-      "service": "chess-data-egress-service"
-    },
-    "capability": "chess_data_egress",
-    "event": "new_measurement"
   }
 }
 ```
 
 ## Running With Data Service
 
-Start a RabbitMQ broker, then run both services against matching broker
-configuration:
+Start a RabbitMQ broker, then run this service and a caller that sends directed
+messages to `nsdf_storage.new_measurement`:
 
 ```bash
 # Terminal 1, from this repository
 docker compose up broker
 
-# Terminal 2, from ../intersect-chess-data-service
-uv run intersect-chess-data-service --config local-conf.json
-
-# Terminal 3, from this repository
+# Terminal 2, from this repository
 uv run nsdf-storage-service --config local-conf.json
 ```
 
-When the data-service emits a `new_measurement`, this service prints the event
-source, capability, event name, timestamp, and payload.
+When a directed `new_measurement` message arrives, this service prints the
+message source, capability, endpoint name, timestamp, and payload. A plain
+INTERSECT event emitted by another service is not consumed by this branch.
 
 ## Development
 

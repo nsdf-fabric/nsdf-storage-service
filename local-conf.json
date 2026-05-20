@@ -16,21 +16,5 @@
     "system": "storage-system",
     "subsystem": "storage-subsystem",
     "service": "nsdf-storage-service"
-  },
-  "source-event": {
-    "hierarchy": {
-      "organization": "chess",
-      "facility": "chess-facility",
-      "system": "data-egress-system",
-      "subsystem": "data-egress-subsystem",
-      "service": "chess-data-egress-service"
-    },
-    "capability": "chess_data_egress",
-    "event": "new_measurement"
-  },
-  "listener-client": {
-    "organization": "chess",
-    "facility": "chess-facility",
-    "system": "nsdf-storage-listener-system"
   }
 }
