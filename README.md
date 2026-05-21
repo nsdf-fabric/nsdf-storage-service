@@ -67,8 +67,8 @@ uv run nsdf-storage-client --config ../local-conf.json
 uv run nsdf-storage-client --config ../local-conf.json --labx 10.5 --labz 20.3 --center-value 42.0
 ```
 
-The client connects to the same broker, sends a single
-`nsdf_storage.new_measurement` message, and stays alive to log the response.
+The client connects to the same broker, and sends a single
+`nsdf_storage.new_measurement` message.
 
 ### INTERSECT Message Endpoints
 
