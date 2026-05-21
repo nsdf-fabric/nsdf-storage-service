@@ -26,7 +26,7 @@ def test_new_measurement_delegates_to_handler():
     capability = NsdfStorageCapability()
     measurement = NewMeasurementData(labx=1.0, labz=2.0, center_value=3.0)
 
-    with patch("nsdf_storage_service.service.handle_new_measurement") as mock_handler:
+    with patch("nsdf_storage_service.endpoints.new_measurement") as mock_handler:
         capability.new_measurement(measurement)
 
     mock_handler.assert_called_once_with(
