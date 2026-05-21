@@ -1,9 +1,8 @@
 # NSDF Storage Service
 
 INTERSECT Storage Service for NSDF. Receives directed CHESS `new_measurement`
-messages through an INTERSECT service endpoint and prints each payload it
-receives. The payload handler is intentionally small so it can later be replaced
-with logic that moves payloads to an S3 bucket.
+messages, accumulates the measurement fields (`labx`, `labz`, `center_value`)
+into a local `data.json` file, and uploads it to S3 on every measurement.
 
 ## Architecture Role
 
@@ -15,8 +14,11 @@ experiment loop:
    `{labx, labz, center_value}`.
 3. **This service** registers an `nsdf_storage` capability with a
    `new_measurement(NewMeasurementData)` message endpoint.
-4. The current handler prints the payload. A future handler will move the
-   payload to an S3 bucket.
+4. Each measurement is appended to in-memory arrays, written to
+   `data.json`, and uploaded to the configured S3 bucket.
+
+On restart, the service recovers prior measurements from the existing
+`data.json` file and continues appending.
 
 ## Installation
 
@@ -52,12 +54,28 @@ export NSDF_STORAGE_SERVICE_CONFIG_FILE=/path/to/config.json
 nsdf-storage-service
 ```
 
+### Standalone Test Client
+
+A standalone INTERSECT client is available under `client/` for sending
+test measurements:
+
+```bash
+cd client
+uv run nsdf-storage-client --config ../local-conf.json
+
+# With custom values
+uv run nsdf-storage-client --config ../local-conf.json --labx 10.5 --labz 20.3 --center-value 42.0
+```
+
+The client connects to the same broker, and sends a single
+`nsdf_storage.new_measurement` message.
+
 ### INTERSECT Message Endpoints
 
-- `describe()` - Returns a short description of the service behavior
-- `new_measurement(NewMeasurementData)` - Receives and prints a CHESS
-  measurement payload
-- `status()` - Returns `"Up"`
+- `describe()` — Returns a short description of the service behavior
+- `new_measurement(NewMeasurementData)` — Appends the measurement to the
+  accumulated arrays, writes `data.json`, and uploads to S3
+- `status()` — Returns `"Up"`
 
 Callers should send a directed INTERSECT message to capability `nsdf_storage`,
 endpoint `new_measurement`, with payload:
@@ -72,7 +90,8 @@ endpoint `new_measurement`, with payload:
 
 ## Configuration
 
-The local config follows the same broker shape as `intersect-chess-data-service`:
+The local config follows the same broker shape as `intersect-chess-data-service`,
+with an additional `s3` section:
 
 ```json
 {
@@ -93,26 +112,37 @@ The local config follows the same broker shape as `intersect-chess-data-service`
     "system": "storage-system",
     "subsystem": "storage-subsystem",
     "service": "nsdf-storage-service"
+  },
+  "s3": {
+    "aws_access_key_id": "",
+    "aws_secret_access_key": "",
+    "endpoint_url": "https://s3.example.com",
+    "bucket": "scientistcloud",
+    "prefix": "myprefix",
+    "data_dir": "/app/data"
   }
 }
 ```
 
-## Running With Data Service
+## Running With the Test Client
 
-Start a RabbitMQ broker, then run this service and a caller that sends directed
-messages to `nsdf_storage.new_measurement`:
+Start a RabbitMQ broker, the storage service, and the test client in separate
+terminals:
 
 ```bash
-# Terminal 1, from this repository
+# Terminal 1 — broker
 docker compose up broker
 
-# Terminal 2, from this repository
+# Terminal 2 — storage service
 uv run nsdf-storage-service --config local-conf.json
+
+# Terminal 3 — test client
+cd client
+uv run nsdf-storage-client --config ../local-conf.json
 ```
 
-When a directed `new_measurement` message arrives, this service prints the
-message source, capability, endpoint name, timestamp, and payload. A plain
-INTERSECT event emitted by another service is not consumed by this branch.
+The service logs each incoming measurement and uploads the accumulated
+`data.json` to S3. The test client logs the service's response.
 
 ## Development
 

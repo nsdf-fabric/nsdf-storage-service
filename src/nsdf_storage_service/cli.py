@@ -11,6 +11,7 @@ from intersect_sdk import default_intersect_lifecycle_loop
 
 from .config import load_config
 from .service import NsdfStorageCapability
+from .s3_uploader import init_s3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,6 +40,9 @@ def main() -> None:
     except (KeyError, ValueError) as e:
         logger.critical("Invalid config file: %s", e)
         sys.exit(1)
+
+    # initialize s3 uploader
+    init_s3(raw_config.get("s3", {}))
 
     capability = NsdfStorageCapability()
     service = IntersectService([capability], service_config)
