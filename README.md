@@ -1,8 +1,8 @@
 # NSDF Storage Service
 
-INTERSECT Storage Service for NSDF. Listens for CHESS `new_measurement` events
-and prints each payload it receives. The payload handler is intentionally small
-so it can later be replaced with logic that moves payloads to an S3 bucket.
+INTERSECT Storage Service for NSDF. Receives directed CHESS `new_measurement`
+messages, accumulates the measurement fields (`labx`, `labz`, `center_value`)
+into a local `data.json` file, and uploads it to S3 on every measurement.
 
 ## Architecture Role
 
@@ -10,12 +10,15 @@ This service is the **INTERSECT Storage Service** in the CHESS autonomous
 experiment loop:
 
 1. `intersect-chess-data-service` monitors reduced CHESS data sources.
-2. The data-service emits an INTERSECT `new_measurement` event containing
+2. A caller sends this service a directed INTERSECT message containing
    `{labx, labz, center_value}`.
-3. **This service** subscribes to that event through the INTERSECT SDK client
-   event API while also registering its own `nsdf_storage` capability.
-4. The current handler prints the payload. A future handler will move the
-   payload to an S3 bucket.
+3. **This service** registers an `nsdf_storage` capability with a
+   `new_measurement(NewMeasurementData)` message endpoint.
+4. Each measurement is appended to in-memory arrays, written to
+   `data.json`, and uploaded to the configured S3 bucket.
+
+On restart, the service recovers prior measurements from the existing
+`data.json` file and continues appending.
 
 ## Installation
 
@@ -51,26 +54,44 @@ export NSDF_STORAGE_SERVICE_CONFIG_FILE=/path/to/config.json
 nsdf-storage-service
 ```
 
+### Standalone Test Client
+
+A standalone INTERSECT client is available under `client/` for sending
+test measurements:
+
+```bash
+cd client
+uv run nsdf-storage-client --config ../local-conf.json
+
+# With custom values
+uv run nsdf-storage-client --config ../local-conf.json --labx 10.5 --labz 20.3 --center-value 42.0
+```
+
+The client connects to the same broker, and sends a single
+`nsdf_storage.new_measurement` message.
+
 ### INTERSECT Message Endpoints
 
-- `describe()` - Returns a short description of the service behavior
-- `status()` - Returns `"Listening"` or `"Idle"`
+- `describe()` — Returns a short description of the service behavior
+- `new_measurement(NewMeasurementData)` — Appends the measurement to the
+  accumulated arrays, writes `data.json`, and uploads to S3
+- `status()` — Returns `"Up"`
 
-### INTERSECT Event Subscription
+Callers should send a directed INTERSECT message to capability `nsdf_storage`,
+endpoint `new_measurement`, with payload:
 
-By default, the service listens for:
-
-- Source hierarchy:
-  `chess.chess-facility.data-egress-system.data-egress-subsystem.chess-data-egress-service`
-- Capability: `chess_data_egress`
-- Event: `new_measurement`
-- Payload: `{"labx": float, "labz": float, "center_value": float}`
-
-These values can be changed in the `source-event` section of the config file.
+```json
+{
+  "labx": 1.0,
+  "labz": 2.0,
+  "center_value": 3.0
+}
+```
 
 ## Configuration
 
-The local config follows the same broker shape as `intersect-chess-data-service`:
+The local config follows the same broker shape as `intersect-chess-data-service`,
+with an additional `s3` section:
 
 ```json
 {
@@ -92,38 +113,36 @@ The local config follows the same broker shape as `intersect-chess-data-service`
     "subsystem": "storage-subsystem",
     "service": "nsdf-storage-service"
   },
-  "source-event": {
-    "hierarchy": {
-      "organization": "chess",
-      "facility": "chess-facility",
-      "system": "data-egress-system",
-      "subsystem": "data-egress-subsystem",
-      "service": "chess-data-egress-service"
-    },
-    "capability": "chess_data_egress",
-    "event": "new_measurement"
+  "s3": {
+    "aws_access_key_id": "",
+    "aws_secret_access_key": "",
+    "endpoint_url": "https://s3.example.com",
+    "bucket": "scientistcloud",
+    "prefix": "myprefix",
+    "data_dir": "/app/data"
   }
 }
 ```
 
-## Running With Data Service
+## Running With the Test Client
 
-Start a RabbitMQ broker, then run both services against matching broker
-configuration:
+Start a RabbitMQ broker, the storage service, and the test client in separate
+terminals:
 
 ```bash
-# Terminal 1, from this repository
+# Terminal 1 — broker
 docker compose up broker
 
-# Terminal 2, from ../intersect-chess-data-service
-uv run intersect-chess-data-service --config local-conf.json
-
-# Terminal 3, from this repository
+# Terminal 2 — storage service
 uv run nsdf-storage-service --config local-conf.json
+
+# Terminal 3 — test client
+cd client
+uv run nsdf-storage-client --config ../local-conf.json
 ```
 
-When the data-service emits a `new_measurement`, this service prints the event
-source, capability, event name, timestamp, and payload.
+The service logs each incoming measurement and uploads the accumulated
+`data.json` to S3. The test client logs the service's response.
 
 ## Development
 

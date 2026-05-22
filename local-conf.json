@@ -17,20 +17,11 @@
     "subsystem": "storage-subsystem",
     "service": "nsdf-storage-service"
   },
-  "source-event": {
-    "hierarchy": {
-      "organization": "chess",
-      "facility": "chess-facility",
-      "system": "data-egress-system",
-      "subsystem": "data-egress-subsystem",
-      "service": "chess-data-egress-service"
-    },
-    "capability": "chess_data_egress",
-    "event": "new_measurement"
-  },
-  "listener-client": {
-    "organization": "chess",
-    "facility": "chess-facility",
-    "system": "nsdf-storage-listener-system"
+  "s3": {
+    "aws_access_key_id": "",
+    "aws_secret_access_key": "",
+    "endpoint_url": "",
+    "bucket": "",
+    "data_dir": ""
   }
 }

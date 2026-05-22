@@ -9,10 +9,17 @@ services:
       RABBITMQ_USERNAME: "intersect_username"
       RABBITMQ_PASSWORD: "intersect_password"
       RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS: "yes"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      retries: 5
+      start_period: 15s
+      timeout: 10s
 
   nsdf-storage-service:
     build: .
     volumes:
       - ./local-docker-conf.json:/app/local-conf.json:ro
     depends_on:
-      - broker
+      broker:
+        condition: service_healthy
