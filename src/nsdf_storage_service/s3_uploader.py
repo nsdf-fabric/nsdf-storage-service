@@ -54,7 +54,7 @@ class S3Uploader:
             logger.debug("S3 client not configured; skipping upload of %s", file)
             return
 
-        local_path = self._data_dir / DEFAULT_DATA_FILE
+        local_path = self._data_dir / file
         if not local_path.exists():
             logger.warning("File not found for S3 upload: %s", local_path)
             return

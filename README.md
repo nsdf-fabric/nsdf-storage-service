@@ -1,8 +1,7 @@
 # NSDF Storage Service
 
-INTERSECT Storage Service for NSDF. Receives directed CHESS `new_measurement`
-messages, accumulates the measurement fields (`labx`, `labz`, `center_value`)
-into a local `data.json` file, and uploads it to S3 on every measurement.
+INTERSECT Storage Service for NSDF. Receives directed CHESS and DIAL messages,
+writes their payloads to local JSON files, and uploads those files to S3.
 
 ## Architecture Role
 
@@ -12,13 +11,15 @@ experiment loop:
 1. `intersect-chess-data-service` monitors reduced CHESS data sources.
 2. A caller sends this service a directed INTERSECT message containing
    `{labx, labz, center_value}`.
-3. **This service** registers an `nsdf_storage` capability with a
-   `new_measurement(NewMeasurementData)` message endpoint.
-4. Each measurement is appended to in-memory arrays, written to
-   `data.json`, and uploaded to the configured S3 bucket.
+3. DIAL can send next-point and surrogate prediction results.
+4. **This service** registers an `nsdf_storage` capability with message endpoints
+   for `new_measurement`, `next_point`, and `surrogate_values`.
+5. Each endpoint writes a JSON file and uploads it to the configured S3 bucket.
 
 On restart, the service recovers prior measurements from the existing
-`data.json` file and continues appending.
+`data.json` file and continues appending. It also appends next-point results to
+`next_x.json`; surrogate grids are stored as the latest payload in
+`surrogate.json`.
 
 ## Installation
 
@@ -75,6 +76,10 @@ The client connects to the same broker, and sends a single
 - `describe()` — Returns a short description of the service behavior
 - `new_measurement(NewMeasurementData)` — Appends the measurement to the
   accumulated arrays, writes `data.json`, and uploads to S3
+- `next_point(NextPointData)` — Appends a DIAL next point to `next_x.json` and
+  uploads to S3
+- `surrogate_values(SurrogateValuesData)` — Writes the latest DIAL surrogate and
+  uncertainty values to `surrogate.json` and uploads to S3
 - `status()` — Returns `"Up"`
 
 Callers should send a directed INTERSECT message to capability `nsdf_storage`,
@@ -85,6 +90,31 @@ endpoint `new_measurement`, with payload:
   "labx": 1.0,
   "labz": 2.0,
   "center_value": 3.0
+}
+```
+
+DIAL next-point payloads should use the DIAL response shape from
+`get_next_point`:
+
+```json
+{
+  "workflow_id": "workflow-id",
+  "data": [1.0, 2.0]
+}
+```
+
+DIAL surrogate payloads should use the DIAL response shape from
+`get_surrogate_values`. The first list is surrogate/predicted values, the second
+is transformed uncertainty, and the optional third list is raw uncertainty:
+
+```json
+{
+  "workflow_id": "workflow-id",
+  "data": [
+    [1.0, 2.0],
+    [0.1, 0.2],
+    [0.01, 0.02]
+  ]
 }
 ```
 
@@ -141,8 +171,8 @@ cd client
 uv run nsdf-storage-client --config ../local-conf.json
 ```
 
-The service logs each incoming measurement and uploads the accumulated
-`data.json` to S3. The test client logs the service's response.
+The service logs incoming messages and uploads `data.json`, `next_x.json`, or
+`surrogate.json` depending on the endpoint.
 
 ## Development
 

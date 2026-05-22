@@ -40,9 +40,7 @@ def _build_response_callback():
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Send a test measurement to nsdf-storage-service"
-    )
+    parser = argparse.ArgumentParser(description="Send a test measurement to nsdf-storage-service")
     parser.add_argument(
         "--config",
         type=Path,
