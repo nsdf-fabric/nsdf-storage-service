@@ -60,7 +60,7 @@ class MeasurementAccumulator:
 
 class DialResultStorage:
     def __init__(self) -> None:
-        self._next_points: list[dict[str, Any]] = []
+        self._next_point_workflows: list[dict[str, Any]] = []
         self._next_points_initialized = False
 
     def _load_existing_next_points(self) -> None:
@@ -72,8 +72,12 @@ class DialResultStorage:
             try:
                 data = json.loads(output_file.read_text())
                 if isinstance(data, list):
-                    self._next_points = data
-                    logger.info("Restored %d next points from %s", len(data), output_file)
+                    self._next_point_workflows = data
+                    logger.info(
+                        "Restored %d next-point workflows from %s",
+                        len(data),
+                        output_file,
+                    )
                 else:
                     logger.warning(
                         "Existing %s has unexpected structure; starting fresh", NEXT_X_FILE
@@ -89,7 +93,7 @@ class DialResultStorage:
                 next_point = NextPointData.model_validate(payload)
                 return {
                     "workflow_id": next_point.workflow_id,
-                    "next_x": next_point.data,
+                    "data": next_point.data,
                 }
             except ValueError:
                 logger.warning("Received next_point payload that does not match expected model")
@@ -143,10 +147,25 @@ class DialResultStorage:
             return
 
         self._load_existing_next_points()
-        self._next_points.append(normalized_payload)
+
+        workflow_id = normalized_payload["workflow_id"]
+        next_point = normalized_payload["data"]
+        for workflow in self._next_point_workflows:
+            if workflow.get("workflow_id") == workflow_id:
+                workflow.setdefault("data", []).append(next_point)
+                break
+        else:
+            self._next_point_workflows.append(
+                {
+                    "workflow_id": workflow_id,
+                    "data": [next_point],
+                }
+            )
 
         output_file = s3_uploader.uploader_data_dir() / NEXT_X_FILE
-        output_file.write_text(json.dumps(self._next_points, indent=2, allow_nan=True) + "\n")
+        output_file.write_text(
+            json.dumps(self._next_point_workflows, indent=2, allow_nan=True) + "\n"
+        )
         s3_uploader.upload_file(NEXT_X_FILE)
 
     def handle_surrogate_values(

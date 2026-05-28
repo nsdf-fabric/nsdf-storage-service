@@ -10,7 +10,7 @@ from nsdf_storage_service import s3_uploader
 @pytest.fixture(autouse=True)
 def _reset_state():
     dial_storage = _endpoints_mod._dial_result_storage
-    dial_storage._next_points.clear()
+    dial_storage._next_point_workflows.clear()
     dial_storage._next_points_initialized = False
     yield
 
@@ -111,11 +111,11 @@ def test_next_point_creates_next_x_file(tmp_path, _patch_upload):
     output_file = tmp_path / "next_x.json"
     assert output_file.exists()
     data = json.loads(output_file.read_text())
-    assert data == [{"workflow_id": "workflow-1", "next_x": [1.0, 2.0]}]
+    assert data == [{"workflow_id": "workflow-1", "data": [[1.0, 2.0]]}]
     _patch_upload.assert_called_once_with("next_x.json")
 
 
-def test_next_point_appends_values(tmp_path, _patch_upload):
+def test_next_point_appends_values_to_matching_workflow(tmp_path, _patch_upload):
     s3_uploader._uploader._data_dir = tmp_path
 
     _endpoints_mod.next_point(
@@ -133,8 +133,31 @@ def test_next_point_appends_values(tmp_path, _patch_upload):
 
     data = json.loads((tmp_path / "next_x.json").read_text())
     assert data == [
-        {"workflow_id": "workflow-1", "next_x": [1.0, 2.0]},
-        {"workflow_id": "workflow-1", "next_x": [3.0, 4.0]},
+        {"workflow_id": "workflow-1", "data": [[1.0, 2.0], [3.0, 4.0]]},
+    ]
+    assert _patch_upload.call_count == 2
+
+
+def test_next_point_creates_new_object_for_new_workflow(tmp_path, _patch_upload):
+    s3_uploader._uploader._data_dir = tmp_path
+
+    _endpoints_mod.next_point(
+        source="src1",
+        capability_name="nsdf_storage",
+        endpoint_name="next_point",
+        payload={"workflow_id": "workflow-1", "data": [1.0, 2.0]},
+    )
+    _endpoints_mod.next_point(
+        source="src2",
+        capability_name="nsdf_storage",
+        endpoint_name="next_point",
+        payload={"workflow_id": "workflow-2", "data": [5.0, 6.0]},
+    )
+
+    data = json.loads((tmp_path / "next_x.json").read_text())
+    assert data == [
+        {"workflow_id": "workflow-1", "data": [[1.0, 2.0]]},
+        {"workflow_id": "workflow-2", "data": [[5.0, 6.0]]},
     ]
     assert _patch_upload.call_count == 2
 

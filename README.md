@@ -18,7 +18,7 @@ experiment loop:
 
 The `data.json` file is overwritten on every `new_measurement` message because
 that payload already contains the full `dataset_x` and `dataset_y` history.
-The service also appends next-point results to `next_x.json`; surrogate grids
+The service also groups next-point results by workflow in `next_x.json`; surrogate grids
 are stored as the latest payload in `surrogate.json`.
 
 ## Installation
@@ -80,8 +80,8 @@ The client connects to the same broker, and sends a single
 - `describe()` — Returns a short description of the service behavior
 - `new_measurement(NewMeasurementData)` — Writes the full DIAL workflow snapshot
   to `data.json` and uploads to S3
-- `next_point(NextPointData)` — Appends a DIAL next point to `next_x.json` and
-  uploads to S3
+- `next_point(NextPointData)` — Appends a DIAL next-point vector to the matching
+  workflow in `next_x.json` and uploads to S3
 - `surrogate_values(SurrogateValuesData)` — Writes the latest DIAL surrogate and
   uncertainty values to `surrogate.json` and uploads to S3
 - `status()` — Returns `"Up"`
@@ -118,6 +118,20 @@ DIAL next-point payloads should use the DIAL response shape from
   "workflow_id": "workflow-id",
   "data": [1.0, 2.0]
 }
+```
+
+The persisted `next_x.json` groups received vectors by `workflow_id`:
+
+```json
+[
+  {
+    "workflow_id": "workflow-id",
+    "data": [
+      [1.0, 2.0],
+      [3.0, 4.0]
+    ]
+  }
+]
 ```
 
 DIAL surrogate payloads should use the DIAL response shape from
