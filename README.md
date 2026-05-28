@@ -9,17 +9,17 @@ This service is the **INTERSECT Storage Service** in the CHESS autonomous
 experiment loop:
 
 1. `intersect-chess-data-service` monitors reduced CHESS data sources.
-2. A caller sends this service a directed INTERSECT message containing
-   `{labx, labz, center_value}`.
+2. A caller sends this service a directed INTERSECT message containing the full
+   DIAL workflow state from `get_workflow_data`.
 3. DIAL can send next-point and surrogate prediction results.
 4. **This service** registers an `nsdf_storage` capability with message endpoints
    for `new_measurement`, `next_point`, and `surrogate_values`.
 5. Each endpoint writes a JSON file and uploads it to the configured S3 bucket.
 
-On restart, the service recovers prior measurements from the existing
-`data.json` file and continues appending. It also appends next-point results to
-`next_x.json`; surrogate grids are stored as the latest payload in
-`surrogate.json`.
+The `data.json` file is overwritten on every `new_measurement` message because
+that payload already contains the full `dataset_x` and `dataset_y` history.
+The service also appends next-point results to `next_x.json`; surrogate grids
+are stored as the latest payload in `surrogate.json`.
 
 ## Installation
 
@@ -58,14 +58,18 @@ nsdf-storage-service
 ### Standalone Test Client
 
 A standalone INTERSECT client is available under `client/` for sending
-test measurements:
+test workflow snapshots:
 
 ```bash
 cd client
 uv run nsdf-storage-client --config ../local-conf.json
 
 # With custom values
-uv run nsdf-storage-client --config ../local-conf.json --labx 10.5 --labz 20.3 --center-value 42.0
+uv run nsdf-storage-client --config ../local-conf.json \
+  --dataset-x '[[10.5, 20.3], [11.0, 21.0]]' \
+  --dataset-y '[42.0, 43.0]' \
+  --bounds '[[0.0, 50.0], [0.0, 50.0]]' \
+  --dim-x 2
 ```
 
 The client connects to the same broker, and sends a single
@@ -74,8 +78,8 @@ The client connects to the same broker, and sends a single
 ### INTERSECT Message Endpoints
 
 - `describe()` — Returns a short description of the service behavior
-- `new_measurement(NewMeasurementData)` — Appends the measurement to the
-  accumulated arrays, writes `data.json`, and uploads to S3
+- `new_measurement(NewMeasurementData)` — Writes the full DIAL workflow snapshot
+  to `data.json` and uploads to S3
 - `next_point(NextPointData)` — Appends a DIAL next point to `next_x.json` and
   uploads to S3
 - `surrogate_values(SurrogateValuesData)` — Writes the latest DIAL surrogate and
@@ -87,11 +91,24 @@ endpoint `new_measurement`, with payload:
 
 ```json
 {
-  "labx": 1.0,
-  "labz": 2.0,
-  "center_value": 3.0
+  "dataset_x": [
+    [1.0, 2.0],
+    [3.0, 4.0]
+  ],
+  "dataset_y": [69.1, 69.2],
+  "backend": "sklearn",
+  "kernel": "rbf",
+  "bounds": [
+    [0.0, 10.0],
+    [0.0, 10.0]
+  ],
+  "dim_x": 2
 }
 ```
+
+For CHESS workflows, each `dataset_x` row contains the old `[labx, labz]`
+coordinates, and `dataset_y` contains the old `center_value` values aligned by
+index.
 
 DIAL next-point payloads should use the DIAL response shape from
 `get_next_point`:

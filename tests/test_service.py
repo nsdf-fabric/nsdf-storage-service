@@ -26,7 +26,14 @@ def test_describe_returns_service_description():
 
 def test_new_measurement_delegates_to_handler():
     capability = NsdfStorageCapability()
-    measurement = NewMeasurementData(labx=1.0, labz=2.0, center_value=3.0)
+    measurement = NewMeasurementData(
+        dataset_x=[[1.0, 2.0], [3.0, 4.0]],
+        dataset_y=[69.1, 69.2],
+        backend="sklearn",
+        kernel="rbf",
+        bounds=[[0.0, 10.0], [0.0, 10.0]],
+        dim_x=2,
+    )
 
     with patch("nsdf_storage_service.endpoints.new_measurement") as mock_handler:
         capability.new_measurement(measurement)
@@ -35,7 +42,7 @@ def test_new_measurement_delegates_to_handler():
         source="direct-message",
         capability_name="nsdf_storage",
         endpoint_name="new_measurement",
-        payload={"labx": 1.0, "labz": 2.0, "center_value": 3.0},
+        payload=measurement.model_dump(),
     )
 
 
