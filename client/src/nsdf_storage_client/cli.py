@@ -41,7 +41,7 @@ def _build_response_callback():
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Send a test measurement to nsdf-storage-service"
+        description="Send a test workflow snapshot to nsdf-storage-service"
     )
     parser.add_argument(
         "--config",
@@ -49,9 +49,29 @@ def main() -> None:
         default=Path("local-conf.json"),
         help="Path to the INTERSECT config JSON file",
     )
-    parser.add_argument("--labx", type=float, default=1.0, help="labx value")
-    parser.add_argument("--labz", type=float, default=2.0, help="labz value")
-    parser.add_argument("--center-value", type=float, default=3.0, help="center_value value")
+    parser.add_argument(
+        "--dataset-x",
+        default="[[1.0, 2.0], [3.0, 4.0]]",
+        help="JSON list of input vectors. Default: [[1.0, 2.0], [3.0, 4.0]]",
+    )
+    parser.add_argument(
+        "--dataset-y",
+        default="[69.1, 69.2]",
+        help="JSON list of output values. Default: [69.1, 69.2]",
+    )
+    parser.add_argument("--backend", default="sklearn", help="DIAL backend name")
+    parser.add_argument(
+        "--kernel",
+        default="rbf",
+        choices=("rbf", "matern", "linear"),
+        help="DIAL kernel name",
+    )
+    parser.add_argument(
+        "--bounds",
+        default="[[0.0, 10.0], [0.0, 10.0]]",
+        help="JSON list of bounds. Default: [[0.0, 10.0], [0.0, 10.0]]",
+    )
+    parser.add_argument("--dim-x", type=int, default=2, help="Input dimension")
     args = parser.parse_args()
 
     try:
@@ -68,6 +88,13 @@ def main() -> None:
         return
 
     destination = _hierarchy_to_dot(hierarchy)
+    try:
+        dataset_x = json.loads(args.dataset_x)
+        dataset_y = json.loads(args.dataset_y)
+        bounds = json.loads(args.bounds)
+    except json.JSONDecodeError as e:
+        logger.critical("Unable to parse workflow JSON arguments: %s", e)
+        return
 
     control_config = ControlPlaneConfig(
         protocol=broker_cfg["protocol"],
@@ -89,9 +116,12 @@ def main() -> None:
                     destination=destination,
                     operation="nsdf_storage.new_measurement",
                     payload={
-                        "labx": args.labx,
-                        "labz": args.labz,
-                        "center_value": args.center_value,
+                        "dataset_x": dataset_x,
+                        "dataset_y": dataset_y,
+                        "backend": args.backend,
+                        "kernel": args.kernel,
+                        "bounds": bounds,
+                        "dim_x": args.dim_x,
                     },
                 )
             ]
