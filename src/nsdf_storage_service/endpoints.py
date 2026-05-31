@@ -29,6 +29,49 @@ class MeasurementAccumulator:
                 )
         return payload
 
+    def _load_existing_snapshot(self) -> dict[str, Any]:
+        data_file = s3_uploader.uploader_data_dir() / "data.json"
+        if data_file.exists():
+            try:
+                data = json.loads(data_file.read_text())
+                if isinstance(data, dict):
+                    return data
+            except (json.JSONDecodeError, ValueError):
+                logger.warning("Existing data.json is corrupt; starting a new snapshot")
+
+        return {
+            "dataset_x": [],
+            "dataset_y": [],
+            "backend": "sklearn",
+            "kernel": "rbf",
+            "bounds": [[-47.33, 26.17], [-255.3, -242.3]],
+            "y_is_good": True,
+            "seed": -1,
+            "dim_x": 2,
+            "preprocess_log": False,
+            "preprocess_standardize": False,
+        }
+
+    def _to_snapshot_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        # Snapshot payload already includes full dataset arrays.
+        if isinstance(payload.get("dataset_x"), list) and isinstance(payload.get("dataset_y"), list):
+            return payload
+
+        snapshot = self._load_existing_snapshot()
+        dataset_x = snapshot.setdefault("dataset_x", [])
+        dataset_y = snapshot.setdefault("dataset_y", [])
+
+        if "next_x" in payload and "next_y" in payload:
+            dataset_x.append(payload["next_x"])
+            dataset_y.append(payload["next_y"])
+        elif all(k in payload for k in ("labx", "labz", "center_value")):
+            dataset_x.append([payload["labx"], payload["labz"]])
+            dataset_y.append(payload["center_value"])
+        else:
+            logger.warning("new_measurement payload did not include snapshot or point fields")
+
+        return snapshot
+
     def handle_new_measurement(
         self,
         *,
@@ -50,6 +93,7 @@ class MeasurementAccumulator:
         )
 
         if isinstance(normalized_payload, dict):
+            normalized_payload = self._to_snapshot_payload(normalized_payload)
             data_file = s3_uploader.uploader_data_dir() / "data.json"
             data_file.write_text(json.dumps(normalized_payload, indent=2, allow_nan=True) + "\n")
 
