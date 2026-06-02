@@ -61,7 +61,7 @@ class MeasurementAccumulator:
         dataset_x = snapshot.setdefault("dataset_x", [])
         dataset_y = snapshot.setdefault("dataset_y", [])
 
-        if "next_x" in payload and "next_y" in payload:
+        if payload.get("next_x") is not None and payload.get("next_y") is not None:
             dataset_x.append(payload["next_x"])
             dataset_y.append(payload["next_y"])
         elif all(k in payload for k in ("labx", "labz", "center_value")):
