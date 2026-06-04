@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from intersect_sdk import IntersectService, IntersectServiceConfig
 
 from . import s3_uploader
-from .config import load_config
+from .config import CONFIG_FILE_ENV_VAR, DEFAULT_CONFIG_FILE, load_runtime_config
 from .dashboard.strain_lib import state_to_dashboard_payload
 from .endpoints import DATA_FILE, NEXT_X_FILE, SURROGATE_FILE, StorageEndpointHandlers
 from .live_state import LiveStateStore
@@ -42,9 +42,7 @@ def create_app(
     config_path: str | Path | None = None,
     start_intersect: bool = True,
 ) -> FastAPI:
-    config_file = Path(
-        config_path or os.environ.get("NSDF_STORAGE_SERVICE_CONFIG_FILE", "local-conf.json")
-    )
+    config_file = Path(config_path or os.environ.get(CONFIG_FILE_ENV_VAR, DEFAULT_CONFIG_FILE))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -163,7 +161,8 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=Path,
-        default=os.environ.get("NSDF_STORAGE_SERVICE_CONFIG_FILE", "local-conf.json"),
+        default=os.environ.get(CONFIG_FILE_ENV_VAR, DEFAULT_CONFIG_FILE),
+        help="Fallback config file path. Ignored when NSDF_STORAGE_SERVICE_CONFIG_JSON is set.",
     )
     parser.add_argument("--host", default=None)
     parser.add_argument("--port", type=int, default=None)
@@ -179,7 +178,7 @@ def main() -> None:
 
 def _load_config_or_exit(path: Path) -> dict[str, Any]:
     try:
-        return load_config(path)
+        return load_runtime_config(path)
     except (ValueError, OSError) as exc:
         logger.critical("Unable to load config file: %s", exc)
         sys.exit(1)

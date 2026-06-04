@@ -20,8 +20,49 @@ services:
     build: .
     ports:
       - "8059:8059"
+    environment:
+      NSDF_STORAGE_SERVICE_CONFIG_JSON: |
+        {
+          "intersect": {
+            "brokers": [
+              {
+                "username": "intersect_username",
+                "password": "intersect_password",
+                "host": "broker",
+                "port": 5672,
+                "protocol": "amqp0.9.1"
+              }
+            ]
+          },
+          "intersect-hierarchy": {
+            "organization": "chess",
+            "facility": "chess-facility",
+            "system": "storage-system",
+            "subsystem": "storage-subsystem",
+            "service": "nsdf-storage-service"
+          },
+          "s3": {
+            "aws_access_key_id": "",
+            "aws_secret_access_key": "",
+            "endpoint_url": "",
+            "bucket": "",
+            "data_dir": "/app/data"
+          },
+          "dashboard": {
+            "enabled": true,
+            "host": "0.0.0.0",
+            "port": 8059,
+            "route": "/dashboard",
+            "grid_size": null,
+            "grid_bounds": null
+          },
+          "persistence": {
+            "show_unpersisted_updates": true,
+            "retry_interval_seconds": 5,
+            "max_retry_interval_seconds": 60
+          }
+        }
     volumes:
-      - ./local-docker-conf.json:/app/local-conf.json:ro
       - nsdf-storage-data:/app/data
     depends_on:
       broker:

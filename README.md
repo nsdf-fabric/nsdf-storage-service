@@ -46,8 +46,9 @@ uv sync
 
 ## Configuration
 
-Configuration is JSON. You do not need an `.env` file unless you prefer to
-manage secrets separately and inject them into a generated JSON config.
+Configuration is JSON. In deployment, prefer passing the full config document in
+the `NSDF_STORAGE_SERVICE_CONFIG_JSON` environment variable. The `--config`
+file path remains as a local-development fallback when the env var is absent.
 
 Example local config:
 
@@ -95,7 +96,54 @@ Example local config:
 }
 ```
 
-For Docker Compose, use broker host `"broker"` and data dir `"/app/data"`.
+For Docker Compose/deployment, use broker host `"broker"` and data dir
+`"/app/data"` inside `NSDF_STORAGE_SERVICE_CONFIG_JSON`.
+
+Example env-based runtime config:
+
+```bash
+export NSDF_STORAGE_SERVICE_CONFIG_JSON='{
+  "intersect": {
+    "brokers": [
+      {
+        "username": "intersect_username",
+        "password": "intersect_password",
+        "host": "broker",
+        "port": 5672,
+        "protocol": "amqp0.9.1"
+      }
+    ]
+  },
+  "intersect-hierarchy": {
+    "organization": "chess",
+    "facility": "chess-facility",
+    "system": "storage-system",
+    "subsystem": "storage-subsystem",
+    "service": "nsdf-storage-service"
+  },
+  "s3": {
+    "aws_access_key_id": "...",
+    "aws_secret_access_key": "...",
+    "endpoint_url": "...",
+    "bucket": "scientistcloud",
+    "prefix": "myprefix",
+    "data_dir": "/app/data"
+  },
+  "dashboard": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8059,
+    "route": "/dashboard",
+    "grid_size": [26, 26],
+    "grid_bounds": [[0, 26], [0, 26]]
+  },
+  "persistence": {
+    "show_unpersisted_updates": true,
+    "retry_interval_seconds": 5,
+    "max_retry_interval_seconds": 60
+  }
+}'
+```
 
 ### Dashboard Grid Options
 
@@ -130,10 +178,12 @@ Start the FastAPI + INTERSECT + dashboard service:
 
 ```bash
 uv run nsdf-storage-service-web \
-  --config local-conf.json \
   --host 0.0.0.0 \
   --port 8059
 ```
+
+If `NSDF_STORAGE_SERVICE_CONFIG_JSON` is not set, add
+`--config local-conf.json` to load the fallback file.
 
 Open the dashboard:
 
@@ -353,9 +403,9 @@ The service exposes the dashboard on:
 http://localhost:8059/dashboard
 ```
 
-Compose mounts:
+Compose configuration:
 
-- `./local-docker-conf.json:/app/local-conf.json:ro`
+- `NSDF_STORAGE_SERVICE_CONFIG_JSON` is passed as an environment variable.
 - `nsdf-storage-data:/app/data`
 
 The mounted `/app/data` volume preserves JSON state and the upload outbox across

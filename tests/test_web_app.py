@@ -48,3 +48,13 @@ def test_fastapi_websocket_receives_initial_snapshot(tmp_path):
     assert event["state"]["revision"] == 0
     assert event["state"]["dashboard_config"]["grid_size"] == [11, 7]
     assert event["state"]["dashboard_config"]["grid_bounds"] == [[0, 11], [0, 7]]
+
+
+def test_fastapi_can_load_config_from_env_json(tmp_path, monkeypatch):
+    monkeypatch.setenv("NSDF_STORAGE_SERVICE_CONFIG_JSON", json.dumps(_config(tmp_path)))
+
+    with TestClient(
+        create_app(config_path=tmp_path / "does-not-exist.json", start_intersect=False)
+    ) as client:
+        assert client.get("/health").json() == {"status": "ok"}
+        assert client.get("/api/state").json()["dashboard_config"]["grid_size"] == [11, 7]
