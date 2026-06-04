@@ -3,21 +3,69 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from intersect_sdk import INTERSECT_RESPONSE_VALUE
 
 from . import s3_uploader
+from .atomic_io import write_json_atomic
 from .data_models import NewMeasurementData, NextPointData, SurrogateValuesData
+from .live_state import LiveStateStore
+from .upload_outbox import UploadOutbox
+from .websocket_manager import WebSocketManager
 
 logger = logging.getLogger(__name__)
 
 
+DATA_FILE = "data.json"
 NEXT_X_FILE = "next_x.json"
 SURROGATE_FILE = "surrogate.json"
 
 
+class LiveUpdateSink:
+    def __init__(
+        self,
+        *,
+        live_state: LiveStateStore,
+        upload_outbox: UploadOutbox,
+        websocket_manager: WebSocketManager,
+        data_dir: Path,
+    ) -> None:
+        self.live_state = live_state
+        self.upload_outbox = upload_outbox
+        self.websocket_manager = websocket_manager
+        self.data_dir = data_dir
+
+    def handle_measurement(self, payload: dict[str, Any]) -> None:
+        write_json_atomic(self.data_dir / DATA_FILE, payload)
+        state = self.live_state.update_measurement(payload)
+        self.websocket_manager.publish("measurement_updated", state)
+        self.upload_outbox.enqueue_sync(DATA_FILE)
+
+    def handle_next_x(self, payload: list[dict[str, Any]]) -> None:
+        write_json_atomic(self.data_dir / NEXT_X_FILE, payload)
+        state = self.live_state.update_next_x(payload)
+        self.websocket_manager.publish("next_point_updated", state)
+        self.upload_outbox.enqueue_sync(NEXT_X_FILE)
+
+    def handle_surrogate(self, payload: dict[str, Any]) -> None:
+        write_json_atomic(self.data_dir / SURROGATE_FILE, payload)
+        state = self.live_state.update_surrogate(payload)
+        self.websocket_manager.publish("surrogate_updated", state)
+        self.upload_outbox.enqueue_sync(SURROGATE_FILE)
+
+
 class MeasurementAccumulator:
+    def __init__(
+        self,
+        *,
+        data_dir: Path | None = None,
+        live_sink: LiveUpdateSink | None = None,
+    ) -> None:
+        self._data_dir = data_dir
+        self._live_sink = live_sink
+
     def _normalize_payload(self, payload: INTERSECT_RESPONSE_VALUE) -> Any:
         """Validate and dump payload as a dict, warn on mismatch."""
         if isinstance(payload, dict):
@@ -30,7 +78,7 @@ class MeasurementAccumulator:
         return payload
 
     def _load_existing_snapshot(self) -> dict[str, Any]:
-        data_file = s3_uploader.uploader_data_dir() / "data.json"
+        data_file = (self._data_dir or s3_uploader.uploader_data_dir()) / DATA_FILE
         if data_file.exists():
             try:
                 data = json.loads(data_file.read_text())
@@ -54,7 +102,9 @@ class MeasurementAccumulator:
 
     def _to_snapshot_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         # Snapshot payload already includes full dataset arrays.
-        if isinstance(payload.get("dataset_x"), list) and isinstance(payload.get("dataset_y"), list):
+        if isinstance(payload.get("dataset_x"), list) and isinstance(
+            payload.get("dataset_y"), list
+        ):
             return payload
 
         snapshot = self._load_existing_snapshot()
@@ -94,24 +144,35 @@ class MeasurementAccumulator:
 
         if isinstance(normalized_payload, dict):
             normalized_payload = self._to_snapshot_payload(normalized_payload)
-            data_file = s3_uploader.uploader_data_dir() / "data.json"
-            data_file.write_text(json.dumps(normalized_payload, indent=2, allow_nan=True) + "\n")
-
-            s3_uploader.upload_file("data.json")
+            if self._live_sink is not None:
+                self._live_sink.handle_measurement(normalized_payload)
+            else:
+                data_file = s3_uploader.uploader_data_dir() / DATA_FILE
+                data_file.write_text(
+                    json.dumps(normalized_payload, indent=2, allow_nan=True) + "\n"
+                )
+                s3_uploader.upload_file(DATA_FILE)
         else:
             logger.warning("Unexpected payload type: %s", type(normalized_payload).__name__)
 
 
 class DialResultStorage:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        data_dir: Path | None = None,
+        live_sink: LiveUpdateSink | None = None,
+    ) -> None:
         self._next_point_workflows: list[dict[str, Any]] = []
         self._next_points_initialized = False
+        self._data_dir = data_dir
+        self._live_sink = live_sink
 
     def _load_existing_next_points(self) -> None:
         if self._next_points_initialized:
             return
 
-        output_file = s3_uploader.uploader_data_dir() / NEXT_X_FILE
+        output_file = (self._data_dir or s3_uploader.uploader_data_dir()) / NEXT_X_FILE
         if output_file.exists():
             try:
                 data = json.loads(output_file.read_text())
@@ -206,11 +267,14 @@ class DialResultStorage:
                 }
             )
 
-        output_file = s3_uploader.uploader_data_dir() / NEXT_X_FILE
-        output_file.write_text(
-            json.dumps(self._next_point_workflows, indent=2, allow_nan=True) + "\n"
-        )
-        s3_uploader.upload_file(NEXT_X_FILE)
+        if self._live_sink is not None:
+            self._live_sink.handle_next_x(self._next_point_workflows)
+        else:
+            output_file = s3_uploader.uploader_data_dir() / NEXT_X_FILE
+            output_file.write_text(
+                json.dumps(self._next_point_workflows, indent=2, allow_nan=True) + "\n"
+            )
+            s3_uploader.upload_file(NEXT_X_FILE)
 
     def handle_surrogate_values(
         self,
@@ -233,13 +297,83 @@ class DialResultStorage:
         if normalized_payload is None:
             return
 
-        output_file = s3_uploader.uploader_data_dir() / SURROGATE_FILE
-        output_file.write_text(json.dumps(normalized_payload, indent=2, allow_nan=True) + "\n")
-        s3_uploader.upload_file(SURROGATE_FILE)
+        if self._live_sink is not None:
+            self._live_sink.handle_surrogate(normalized_payload)
+        else:
+            output_file = s3_uploader.uploader_data_dir() / SURROGATE_FILE
+            output_file.write_text(json.dumps(normalized_payload, indent=2, allow_nan=True) + "\n")
+            s3_uploader.upload_file(SURROGATE_FILE)
 
 
-_accumulator = MeasurementAccumulator()
-_dial_result_storage = DialResultStorage()
+class StorageEndpointHandlers:
+    def __init__(
+        self,
+        *,
+        data_dir: Path | None = None,
+        live_state: LiveStateStore | None = None,
+        upload_outbox: UploadOutbox | None = None,
+        websocket_manager: WebSocketManager | None = None,
+    ) -> None:
+        live_sink = None
+        if live_state is not None and upload_outbox is not None and websocket_manager is not None:
+            live_sink = LiveUpdateSink(
+                live_state=live_state,
+                upload_outbox=upload_outbox,
+                websocket_manager=websocket_manager,
+                data_dir=data_dir or s3_uploader.uploader_data_dir(),
+            )
+        self.accumulator = MeasurementAccumulator(data_dir=data_dir, live_sink=live_sink)
+        self.dial_result_storage = DialResultStorage(data_dir=data_dir, live_sink=live_sink)
+
+    def new_measurement(
+        self,
+        *,
+        source: str,
+        capability_name: str,
+        endpoint_name: str,
+        payload: INTERSECT_RESPONSE_VALUE,
+    ) -> None:
+        self.accumulator.handle_new_measurement(
+            source=source,
+            capability_name=capability_name,
+            endpoint_name=endpoint_name,
+            payload=payload,
+        )
+
+    def next_point(
+        self,
+        *,
+        source: str,
+        capability_name: str,
+        endpoint_name: str,
+        payload: INTERSECT_RESPONSE_VALUE,
+    ) -> None:
+        self.dial_result_storage.handle_next_point(
+            source=source,
+            capability_name=capability_name,
+            endpoint_name=endpoint_name,
+            payload=payload,
+        )
+
+    def surrogate_values(
+        self,
+        *,
+        source: str,
+        capability_name: str,
+        endpoint_name: str,
+        payload: INTERSECT_RESPONSE_VALUE,
+    ) -> None:
+        self.dial_result_storage.handle_surrogate_values(
+            source=source,
+            capability_name=capability_name,
+            endpoint_name=endpoint_name,
+            payload=payload,
+        )
+
+
+_legacy_handlers = StorageEndpointHandlers()
+_accumulator = _legacy_handlers.accumulator
+_dial_result_storage = _legacy_handlers.dial_result_storage
 
 
 def new_measurement(
@@ -249,7 +383,7 @@ def new_measurement(
     endpoint_name: str,
     payload: INTERSECT_RESPONSE_VALUE,
 ) -> None:
-    _accumulator.handle_new_measurement(
+    _legacy_handlers.new_measurement(
         source=source,
         capability_name=capability_name,
         endpoint_name=endpoint_name,
@@ -264,7 +398,7 @@ def next_point(
     endpoint_name: str,
     payload: INTERSECT_RESPONSE_VALUE,
 ) -> None:
-    _dial_result_storage.handle_next_point(
+    _legacy_handlers.next_point(
         source=source,
         capability_name=capability_name,
         endpoint_name=endpoint_name,
@@ -279,7 +413,7 @@ def surrogate_values(
     endpoint_name: str,
     payload: INTERSECT_RESPONSE_VALUE,
 ) -> None:
-    _dial_result_storage.handle_surrogate_values(
+    _legacy_handlers.surrogate_values(
         source=source,
         capability_name=capability_name,
         endpoint_name=endpoint_name,

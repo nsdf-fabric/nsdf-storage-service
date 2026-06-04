@@ -8,15 +8,22 @@ license = {text = "BSD-3-Clause"}
 
 dependencies = [
     "boto3>=1.34",
+    "bokeh>=3.0",
+    "fastapi>=0.110",
     "intersect_sdk[amqp]>=0.9.0,<0.10.0",
+    "jinja2>=3.1",
+    "numpy>=1.24",
     "pydantic>=2.0",
+    "uvicorn[standard]>=0.27",
 ]
 
 [project.scripts]
 nsdf-storage-service = "nsdf_storage_service.cli:main"
+nsdf-storage-service-web = "nsdf_storage_service.web_app:main"
 
 [dependency-groups]
 dev = [
+    "httpx2>=0.28",
     "pytest>=7.4",
     "ruff>=0.1.0",
 ]

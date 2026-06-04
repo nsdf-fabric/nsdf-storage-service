@@ -18,8 +18,14 @@ services:
 
   nsdf-storage-service:
     build: .
+    ports:
+      - "8059:8059"
     volumes:
       - ./local-docker-conf.json:/app/local-conf.json:ro
+      - nsdf-storage-data:/app/data
     depends_on:
       broker:
         condition: service_healthy
+
+volumes:
+  nsdf-storage-data:

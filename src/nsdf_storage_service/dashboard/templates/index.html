@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DIAL Dashboard</title>
+    <link rel="stylesheet" href="/static/dashboard.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>DIAL Dashboard</h1>
+        <p>Live INTERSECT measurement, surrogate, and next-point state</p>
+      </div>
+      <div id="revision">revision 0</div>
+    </header>
+    <main>
+      <section id="status-banner" class="banner banner-empty">Waiting for data.</section>
+      <section class="summary">
+        <div><span id="measurement-count">0</span><small>Measurements</small></div>
+        <div><span id="next-count">0</span><small>Suggested points</small></div>
+        <div><span id="latest-point">none</span><small>Latest suggestion</small></div>
+      </section>
+      <section class="legend" aria-label="Plot legend">
+        <div><span class="legend-marker measured"></span>Measured points</div>
+        <div><span class="legend-marker suggested"></span>Suggested next points</div>
+        <div><span class="legend-marker latest"></span>Latest suggested point</div>
+      </section>
+      <section class="grid-controls" aria-label="Grid controls">
+        <label>Grid width <input id="grid-width" min="1" step="1" type="number" /></label>
+        <label>Grid height <input id="grid-height" min="1" step="1" type="number" /></label>
+        <button id="grid-apply" type="button">Apply</button>
+        <button id="grid-reset" type="button">Reset</button>
+        <span id="grid-mode">Inferred grid</span>
+      </section>
+      <section id="plots"></section>
+      <section class="details">
+        <h2>Persistence</h2>
+        <pre id="s3-status">{}</pre>
+      </section>
+    </main>
+    <script src="/static/dashboard.js"></script>
+  </body>
+</html>

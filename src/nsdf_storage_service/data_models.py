@@ -34,7 +34,9 @@ class NewMeasurementData(BaseModel):
 
     @field_validator("dataset_x")
     @classmethod
-    def _check_dataset_x_row_lengths(cls, dataset_x: list[list[float]] | None) -> list[list[float]] | None:
+    def _check_dataset_x_row_lengths(
+        cls, dataset_x: list[list[float]] | None
+    ) -> list[list[float]] | None:
         if dataset_x is None:
             return dataset_x
         if len(dataset_x) < 2:

@@ -23,5 +23,18 @@
     "endpoint_url": "",
     "bucket": "",
     "data_dir": ""
+  },
+  "dashboard": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8059,
+    "route": "/dashboard",
+    "grid_size": null,
+    "grid_bounds": null
+  },
+  "persistence": {
+    "show_unpersisted_updates": true,
+    "retry_interval_seconds": 5,
+    "max_retry_interval_seconds": 60
   }
 }
