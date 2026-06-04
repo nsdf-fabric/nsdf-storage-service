@@ -43,10 +43,10 @@ def create_app(
     start_intersect: bool = True,
 ) -> FastAPI:
     config_file = Path(config_path or os.environ.get(CONFIG_FILE_ENV_VAR, DEFAULT_CONFIG_FILE))
+    raw_config = _load_config_or_exit(config_file)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        raw_config = _load_config_or_exit(config_file)
         s3_uploader.init_s3(raw_config.get("s3", {}))
         data_dir = s3_uploader.uploader_data_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -118,9 +118,15 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard() -> str:
         return (DASHBOARD_DIR / "templates" / "index.html").read_text(encoding="utf-8")
+
+    app.add_api_route(
+        _dashboard_route_from_config(raw_config),
+        dashboard,
+        methods=["GET"],
+        response_class=HTMLResponse,
+    )
 
     @app.get("/api/state")
     def api_state() -> JSONResponse:
@@ -182,6 +188,13 @@ def _load_config_or_exit(path: Path) -> dict[str, Any]:
     except (ValueError, OSError) as exc:
         logger.critical("Unable to load config file: %s", exc)
         sys.exit(1)
+
+
+def _dashboard_route_from_config(raw_config: dict[str, Any]) -> str:
+    configured = str(raw_config.get("dashboard", {}).get("route") or "/dashboard").strip()
+    if not configured.startswith("/"):
+        configured = f"/{configured}"
+    return configured or "/dashboard"
 
 
 def _load_initial_state(live_state: LiveStateStore, data_dir: Path) -> None:

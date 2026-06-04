@@ -16,7 +16,7 @@ def _config(tmp_path):
             "service": "nsdf-storage-service",
         },
         "s3": {"data_dir": str(tmp_path), "aws_access_key_id": "", "aws_secret_access_key": ""},
-        "dashboard": {"grid_size": [11, 7]},
+        "dashboard": {"route": "/custom-dashboard", "grid_size": [11, 7]},
     }
 
 
@@ -27,6 +27,8 @@ def test_fastapi_health_state_meta_and_raw_json(tmp_path):
 
     with TestClient(create_app(config_path=config_path, start_intersect=False)) as client:
         assert client.get("/health").json() == {"status": "ok"}
+        assert client.get("/custom-dashboard").status_code == 200
+        assert client.get("/dashboard").status_code == 404
         state = client.get("/api/state").json()
         assert state["measurement"]["dataset_y"] == [3.0]
         assert state["dashboard"]["measured_points"][0]["center_value"] == 3.0
