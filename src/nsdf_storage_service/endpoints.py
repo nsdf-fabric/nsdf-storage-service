@@ -54,7 +54,9 @@ class MeasurementAccumulator:
 
     def _to_snapshot_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         # Snapshot payload already includes full dataset arrays.
-        if isinstance(payload.get("dataset_x"), list) and isinstance(payload.get("dataset_y"), list):
+        if isinstance(payload.get("dataset_x"), list) and isinstance(
+            payload.get("dataset_y"), list
+        ):
             return payload
 
         snapshot = self._load_existing_snapshot()

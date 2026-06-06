@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 
-def load_config(path: str | Path) -> dict[str, Any]:
-    """Load a JSON config file."""
+CONFIG_ENV_VAR = "STORAGE_SERVICE_CONFIG"
+
+
+def load_config(path: str | Path, env_var: str = CONFIG_ENV_VAR) -> dict[str, Any]:
+    """Load service config from an environment variable or JSON config file."""
+    raw_config = os.environ.get(env_var)
+    if raw_config:
+        try:
+            config = json.loads(raw_config)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in {env_var}: {e}") from e
+
+        if not isinstance(config, dict):
+            raise ValueError(f"{env_var} must contain a JSON object")
+
+        return config
+
     with Path(path).open("r", encoding="utf-8") as f:
         return json.load(f)
 

@@ -18,6 +18,8 @@ services:
 
   nsdf-storage-service:
     build: .
+    environment:
+      STORAGE_SERVICE_CONFIG: ${STORAGE_SERVICE_CONFIG:-}
     volumes:
       - ./local-docker-conf.json:/app/local-conf.json:ro
     depends_on:

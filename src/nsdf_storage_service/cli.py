@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -23,14 +22,15 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=Path,
-        default=os.environ.get("NSDF_STORAGE_SERVICE_CONFIG_FILE", "local-conf.json"),
+        default=Path("local-conf.json"),
+        help="Path to config JSON file used when STORAGE_SERVICE_CONFIG is not set",
     )
     args = parser.parse_args()
 
     try:
         raw_config = load_config(args.config)
     except (ValueError, OSError) as e:
-        logger.critical("Unable to load config file: %s", e)
+        logger.critical("Unable to load config: %s", e)
         sys.exit(1)
 
     try:

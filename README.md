@@ -32,11 +32,12 @@ uv sync
 ### As an INTERSECT Service
 
 ```bash
-# Start with local config
-nsdf-storage-service --config local-conf.json
+# Start with config from environment
+export STORAGE_SERVICE_CONFIG="$(cat local-conf.json)"
+nsdf-storage-service
 
 # Or with Docker
-docker compose up
+STORAGE_SERVICE_CONFIG="$(cat local-docker-conf.json)" docker compose up
 ```
 
 ### CLI Usage
@@ -44,15 +45,12 @@ docker compose up
 The `nsdf-storage-service` command is installed as a console script:
 
 ```bash
-# Use the default config file (local-conf.json)
+# Read config from STORAGE_SERVICE_CONFIG
+export STORAGE_SERVICE_CONFIG="$(cat local-conf.json)"
 nsdf-storage-service
 
-# Specify a config file
+# Or specify a config file when STORAGE_SERVICE_CONFIG is unset
 nsdf-storage-service --config /path/to/config.json
-
-# Or set via environment variable
-export NSDF_STORAGE_SERVICE_CONFIG_FILE=/path/to/config.json
-nsdf-storage-service
 ```
 
 ### Standalone Test Client
@@ -151,8 +149,9 @@ is transformed uncertainty, and the optional third list is raw uncertainty:
 
 ## Configuration
 
-The local config follows the same broker shape as `intersect-chess-data-service`,
-with an additional `s3` section:
+`STORAGE_SERVICE_CONFIG` must contain the full JSON config. The config follows
+the same broker shape as `intersect-chess-data-service`, with additional `s3`
+and `refresh` sections:
 
 ```json
 {
@@ -217,7 +216,8 @@ terminals:
 docker compose up broker
 
 # Terminal 2 — storage service
-uv run nsdf-storage-service --config local-conf.json
+export STORAGE_SERVICE_CONFIG="$(cat local-conf.json)"
+uv run nsdf-storage-service
 
 # Terminal 3 — test client
 cd client
