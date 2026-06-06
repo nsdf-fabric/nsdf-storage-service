@@ -3,6 +3,8 @@ from os import path
 from pathlib import Path
 import boto3
 
+from . import refresh_notifier
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,23 +50,26 @@ class S3Uploader:
         """Return full object key"""
         return path.join(self._prefix, file)
 
-    def upload_file(self, file: str) -> None:
+    def upload_file(self, file: str) -> bool:
         """Upload a local file to the configured S3 bucket"""
         if self._client is None:
             logger.debug("S3 client not configured; skipping upload of %s", file)
-            return
+            return False
 
         local_path = self._data_dir / file
         if not local_path.exists():
             logger.warning("File not found for S3 upload: %s", local_path)
-            return
+            return False
 
         object_key = self.object_key(file)
         try:
             self._client.upload_file(str(local_path), self._bucket, object_key)
             logger.info("Uploaded %s to s3://%s/%s", local_path, self._bucket, object_key)
+            refresh_notifier.notify_refresh()
+            return True
         except Exception:
             logger.exception("Failed to upload %s to S3", object_key)
+            return False
 
 
 _uploader = S3Uploader()
@@ -80,6 +85,6 @@ def uploader_data_dir() -> Path:
     return _uploader._data_dir
 
 
-def upload_file(object_key: str) -> None:
+def upload_file(object_key: str) -> bool:
     """Upload file to s3"""
-    _uploader.upload_file(object_key)
+    return _uploader.upload_file(object_key)

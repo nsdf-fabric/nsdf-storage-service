@@ -181,9 +181,21 @@ with an additional `s3` section:
     "bucket": "scientistcloud",
     "prefix": "myprefix",
     "data_dir": "/app/data"
+  },
+  "refresh": {
+    "host": "localhost",
+    "port": 8060,
+    "path": "/refresh",
+    "api_key": "",
+    "scheme": "http",
+    "timeout_seconds": 5
   }
 }
 ```
+
+When `refresh.host` and `refresh.api_key` are set, the service sends a `POST`
+request with the `X-API-Key` header after a file is successfully uploaded to S3.
+Refresh failures are logged and do not stop message processing.
 
 ## Running With the Test Client
 

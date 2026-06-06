@@ -23,5 +23,13 @@
     "endpoint_url": "",
     "bucket": "",
     "data_dir": ""
+  },
+  "refresh": {
+    "host": "localhost",
+    "port": 8060,
+    "path": "/refresh",
+    "api_key": "",
+    "scheme": "http",
+    "timeout_seconds": 5
   }
 }

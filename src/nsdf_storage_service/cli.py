@@ -10,6 +10,7 @@ from intersect_sdk import IntersectService, IntersectServiceConfig
 from intersect_sdk import default_intersect_lifecycle_loop
 
 from .config import load_config
+from .refresh_notifier import init_refresh
 from .service import NsdfStorageCapability
 from .s3_uploader import init_s3
 
@@ -43,6 +44,7 @@ def main() -> None:
 
     # initialize s3 uploader
     init_s3(raw_config.get("s3", {}))
+    init_refresh(raw_config.get("refresh", {}))
 
     capability = NsdfStorageCapability()
     service = IntersectService([capability], service_config)
