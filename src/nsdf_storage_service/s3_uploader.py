@@ -1,7 +1,10 @@
 import logging
+from datetime import datetime, timezone
 from os import path
 from pathlib import Path
 import boto3
+
+from . import refresh_notifier
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,9 @@ class S3Uploader:
 
     def init_s3(self, config: dict) -> None:
         """Configure boto3 client, bucket, and local output dir from config."""
+        self._data_dir = Path(config.get("data_dir") or DEFAULT_DATA_DIR)
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+
         if not config.get("aws_access_key_id") or not config.get("aws_secret_access_key"):
             logger.warning("S3 credentials not configured; skipping S3 uploads")
             self._client = None
@@ -36,8 +42,6 @@ class S3Uploader:
         )
         self._bucket = config.get("bucket", DEFAULT_BUCKET)
         self._prefix = config.get("prefix", DEFAULT_PREFIX)
-        self._data_dir = Path(config.get("data_dir", DEFAULT_DATA_DIR))
-        self._data_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(
             "S3 uploader initialized, using data directory= %s",
@@ -48,23 +52,41 @@ class S3Uploader:
         """Return full object key"""
         return path.join(self._prefix, file)
 
-    def upload_file(self, file: str) -> None:
+    def timestamped_file_name(self, file: str) -> str:
+        """Return the timestamped object name for a stable JSON file."""
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        file_path = Path(file)
+        return f"{file_path.stem}_{timestamp}{file_path.suffix}"
+
+    def upload_file(self, file: str) -> bool:
         """Upload a local file to the configured S3 bucket"""
         if self._client is None:
             logger.debug("S3 client not configured; skipping upload of %s", file)
-            return
+            return False
 
         local_path = self._data_dir / file
         if not local_path.exists():
             logger.warning("File not found for S3 upload: %s", local_path)
-            return
+            return False
 
         object_key = self.object_key(file)
+        timestamped_file = self.timestamped_file_name(file)
+        timestamped_object_key = self.object_key(timestamped_file)
         try:
             self._client.upload_file(str(local_path), self._bucket, object_key)
             logger.info("Uploaded %s to s3://%s/%s", local_path, self._bucket, object_key)
+            self._client.upload_file(str(local_path), self._bucket, timestamped_object_key)
+            logger.info(
+                "Uploaded %s to s3://%s/%s",
+                local_path,
+                self._bucket,
+                timestamped_object_key,
+            )
+            refresh_notifier.notify_refresh()
+            return True
         except Exception:
             logger.exception("Failed to upload %s to S3", object_key)
+            return False
 
 
 _uploader = S3Uploader()
@@ -80,6 +102,6 @@ def uploader_data_dir() -> Path:
     return _uploader._data_dir
 
 
-def upload_file(object_key: str) -> None:
+def upload_file(object_key: str) -> bool:
     """Upload file to s3"""
-    _uploader.upload_file(object_key)
+    return _uploader.upload_file(object_key)

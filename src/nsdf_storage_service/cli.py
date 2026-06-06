@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -10,6 +9,7 @@ from intersect_sdk import IntersectService, IntersectServiceConfig
 from intersect_sdk import default_intersect_lifecycle_loop
 
 from .config import load_config
+from .refresh_notifier import init_refresh
 from .service import NsdfStorageCapability
 from .s3_uploader import init_s3
 
@@ -22,14 +22,15 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=Path,
-        default=os.environ.get("NSDF_STORAGE_SERVICE_CONFIG_FILE", "local-conf.json"),
+        default=Path("local-conf.json"),
+        help="Path to config JSON file used when STORAGE_SERVICE_CONFIG is not set",
     )
     args = parser.parse_args()
 
     try:
         raw_config = load_config(args.config)
     except (ValueError, OSError) as e:
-        logger.critical("Unable to load config file: %s", e)
+        logger.critical("Unable to load config: %s", e)
         sys.exit(1)
 
     try:
@@ -43,6 +44,7 @@ def main() -> None:
 
     # initialize s3 uploader
     init_s3(raw_config.get("s3", {}))
+    init_refresh(raw_config.get("refresh", {}))
 
     capability = NsdfStorageCapability()
     service = IntersectService([capability], service_config)
