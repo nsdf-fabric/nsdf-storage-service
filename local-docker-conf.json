@@ -22,7 +22,7 @@
     "aws_secret_access_key": "",
     "endpoint_url": "",
     "bucket": "",
-    "data_dir": ""
+    "data_dir": "/app/data"
   },
   "refresh": {
     "host": "localhost",

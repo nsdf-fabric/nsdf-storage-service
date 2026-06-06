@@ -197,6 +197,16 @@ When `refresh.host` and `refresh.api_key` are set, the service sends a `POST`
 request with the `X-API-Key` header after a file is successfully uploaded to S3.
 Refresh failures are logged and do not stop message processing.
 
+The service always writes the latest local files before uploading to S3. Configure
+that local output directory with `s3.data_dir`; for local development, `./data`
+keeps the files in the repository workspace, while Docker commonly uses
+`/app/data`.
+
+Every S3 upload writes both the latest object and a timestamped copy in UTC:
+`data.json` plus `data_YYYYMMDDTHHMMSSZ.json`, `surrogate.json` plus
+`surrogate_YYYYMMDDTHHMMSSZ.json`, and `next_x.json` plus
+`next_x_YYYYMMDDTHHMMSSZ.json`.
+
 ## Running With the Test Client
 
 Start a RabbitMQ broker, the storage service, and the test client in separate
