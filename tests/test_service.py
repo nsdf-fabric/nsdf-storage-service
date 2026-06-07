@@ -38,6 +38,31 @@ def test_new_measurement_delegates_to_handler():
     with patch("nsdf_storage_service.endpoints.new_measurement") as mock_handler:
         capability.new_measurement(measurement)
 
+    expected_payload = measurement.model_dump()
+    expected_payload.pop("dataset_x_size")
+    mock_handler.assert_called_once_with(
+        source="direct-message",
+        capability_name="nsdf_storage",
+        endpoint_name="new_measurement",
+        payload=expected_payload,
+    )
+
+
+def test_new_measurement_delegates_explicit_dataset_x_size_to_handler():
+    capability = NsdfStorageCapability()
+    measurement = NewMeasurementData(
+        dataset_x=[[1.0, 2.0], [3.0, 4.0]],
+        dataset_y=[69.1, 69.2],
+        dataset_x_size=2,
+        backend="sklearn",
+        kernel="rbf",
+        bounds=[[0.0, 10.0], [0.0, 10.0]],
+        dim_x=2,
+    )
+
+    with patch("nsdf_storage_service.endpoints.new_measurement") as mock_handler:
+        capability.new_measurement(measurement)
+
     mock_handler.assert_called_once_with(
         source="direct-message",
         capability_name="nsdf_storage",
@@ -64,6 +89,25 @@ def test_next_point_delegates_to_handler():
         capability_name="nsdf_storage",
         endpoint_name="next_point",
         payload={"workflow_id": "workflow-1", "data": [1.0, 2.0]},
+    )
+
+
+def test_next_point_delegates_explicit_dataset_x_size_to_handler():
+    capability = NsdfStorageCapability()
+    next_point = NextPointData(
+        workflow_id="workflow-1",
+        data=[1.0, 2.0],
+        dataset_x_size=3,
+    )
+
+    with patch("nsdf_storage_service.endpoints.next_point") as mock_handler:
+        capability.next_point(next_point)
+
+    mock_handler.assert_called_once_with(
+        source="direct-message",
+        capability_name="nsdf_storage",
+        endpoint_name="next_point",
+        payload={"workflow_id": "workflow-1", "dataset_x_size": 3, "data": [1.0, 2.0]},
     )
 
 
