@@ -17,6 +17,10 @@ NEXT_X_FILE = "next_x.json"
 SURROGATE_FILE = "surrogate.json"
 
 
+def _log_received_payload(endpoint_name: str, payload: INTERSECT_RESPONSE_VALUE) -> None:
+    logger.info("Received %s payload: %s", endpoint_name, payload)
+
+
 class MeasurementAccumulator:
     def _normalize_payload(self, payload: INTERSECT_RESPONSE_VALUE) -> Any:
         """Validate and dump payload as a dict, warn on mismatch."""
@@ -156,11 +160,18 @@ class DialResultStorage:
                 surrogate_values = SurrogateValuesData.model_validate(payload)
                 normalized: dict[str, Any] = {
                     "workflow_id": surrogate_values.workflow_id,
-                    "surrogate": surrogate_values.data[0],
-                    "uncertainty": surrogate_values.data[1],
+                    "surrogate": surrogate_values.surrogate_values,
+                    "uncertainty": surrogate_values.uncertainty_values,
                 }
-                if len(surrogate_values.data) > 2:
-                    normalized["raw_uncertainty"] = surrogate_values.data[2]
+                raw_uncertainty = surrogate_values.raw_uncertainty_values
+                if raw_uncertainty is not None:
+                    normalized["raw_uncertainty"] = raw_uncertainty
+                if surrogate_values.dim_x is not None:
+                    normalized["dim_x"] = surrogate_values.dim_x
+                if surrogate_values.bounds is not None:
+                    normalized["bounds"] = surrogate_values.bounds
+                if surrogate_values.points_to_predict is not None:
+                    normalized["points_to_predict"] = surrogate_values.points_to_predict
                 return normalized
             except ValueError:
                 logger.warning(
@@ -251,6 +262,7 @@ def new_measurement(
     endpoint_name: str,
     payload: INTERSECT_RESPONSE_VALUE,
 ) -> None:
+    _log_received_payload(endpoint_name, payload)
     _accumulator.handle_new_measurement(
         source=source,
         capability_name=capability_name,
@@ -266,6 +278,7 @@ def next_point(
     endpoint_name: str,
     payload: INTERSECT_RESPONSE_VALUE,
 ) -> None:
+    _log_received_payload(endpoint_name, payload)
     _dial_result_storage.handle_next_point(
         source=source,
         capability_name=capability_name,
@@ -281,6 +294,7 @@ def surrogate_values(
     endpoint_name: str,
     payload: INTERSECT_RESPONSE_VALUE,
 ) -> None:
+    _log_received_payload(endpoint_name, payload)
     _dial_result_storage.handle_surrogate_values(
         source=source,
         capability_name=capability_name,

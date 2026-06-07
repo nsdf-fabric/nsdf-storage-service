@@ -46,5 +46,5 @@ class NsdfStorageCapability(IntersectBaseCapabilityImplementation):
             source="direct-message",
             capability_name=self.intersect_sdk_capability_name,
             endpoint_name="surrogate_values",
-            payload=surrogate_values.model_dump(),
+            payload=surrogate_values.model_dump(exclude_none=True),
         )

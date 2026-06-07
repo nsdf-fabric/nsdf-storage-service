@@ -105,11 +105,96 @@ class SurrogateValuesData(BaseModel):
     """Surrogate values response returned by DIAL get_surrogate_values."""
 
     workflow_id: str
-    data: list[list[float]] = Field(min_length=2)
+    data: list[list[float]] | None = None
+    values: list[float] | None = None
+    transformed_stddevs: list[float] | None = None
+    stddevs: list[float] | None = None
+    dim_x: int | None = None
+    bounds: list[list[float]] | None = None
+    points_to_predict: list[list[float]] | None = None
 
     @field_validator("data")
     @classmethod
-    def _check_surrogate_payload(cls, data: list[list[float]]) -> list[list[float]]:
+    def _check_surrogate_payload(cls, data: list[list[float]] | None) -> list[list[float]] | None:
+        if data is None:
+            return data
         if len(data) < 2:
             raise ValueError("data must include surrogate and uncertainty arrays")
         return data
+
+    @field_validator("bounds")
+    @classmethod
+    def _check_surrogate_bounds(cls, bounds: list[list[float]] | None) -> list[list[float]] | None:
+        if bounds is None:
+            return bounds
+        for row in bounds:
+            if len(row) != 2:
+                raise ValueError("Each bounds row must contain exactly two values")
+            row.sort()
+        return bounds
+
+    @model_validator(mode="after")
+    def _check_surrogate_shape(self):
+        has_legacy_data = self.data is not None
+        new_shape_fields = (
+            self.values,
+            self.transformed_stddevs,
+            self.stddevs,
+            self.dim_x,
+            self.bounds,
+            self.points_to_predict,
+        )
+        has_new_shape = any(field is not None for field in new_shape_fields)
+
+        if not has_legacy_data and not has_new_shape:
+            raise ValueError("Must provide legacy data or expanded surrogate fields")
+
+        if has_new_shape:
+            missing = [
+                name
+                for name, value in (
+                    ("values", self.values),
+                    ("transformed_stddevs", self.transformed_stddevs),
+                    ("stddevs", self.stddevs),
+                    ("dim_x", self.dim_x),
+                    ("bounds", self.bounds),
+                    ("points_to_predict", self.points_to_predict),
+                )
+                if value is None
+            ]
+            if missing:
+                raise ValueError(f"Missing expanded surrogate fields: {missing}")
+
+            if len(self.values) != len(self.transformed_stddevs) or len(self.values) != len(
+                self.stddevs
+            ):
+                raise ValueError("values, transformed_stddevs, and stddevs lengths must match")
+
+            for point in self.points_to_predict:
+                if len(point) != self.dim_x:
+                    raise ValueError("points_to_predict rows must match dim_x")
+
+            if len(self.bounds) != self.dim_x:
+                raise ValueError("bounds length must match dim_x")
+
+        return self
+
+    @property
+    def surrogate_values(self) -> list[float]:
+        if self.values is not None:
+            return self.values
+        return self.data[0]
+
+    @property
+    def uncertainty_values(self) -> list[float]:
+        if self.transformed_stddevs is not None:
+            return self.transformed_stddevs
+        return self.data[1]
+
+    @property
+    def raw_uncertainty_values(self) -> list[float] | None:
+        if self.stddevs is not None:
+            return self.stddevs
+        if self.data is not None and len(self.data) > 2:
+            return self.data[2]
+        return None
