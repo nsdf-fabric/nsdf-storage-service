@@ -132,9 +132,30 @@ The persisted `next_x.json` groups received vectors by `workflow_id`:
 ]
 ```
 
-DIAL surrogate payloads should use the DIAL response shape from
-`get_surrogate_values`. The first list is surrogate/predicted values, the second
-is transformed uncertainty, and the optional third list is raw uncertainty:
+DIAL surrogate payloads should use the expanded DIAL response shape from
+`get_surrogate_values`:
+
+```json
+{
+  "workflow_id": "workflow-id",
+  "values": [1.0, 2.0],
+  "transformed_stddevs": [0.1, 0.2],
+  "stddevs": [0.01, 0.02],
+  "dim_x": 2,
+  "bounds": [
+    [0.0, 24.0],
+    [0.0, 24.0]
+  ],
+  "points_to_predict": [
+    [1.0, 2.0],
+    [3.0, 4.0]
+  ]
+}
+```
+
+The legacy list payload is also accepted. The first list is surrogate/predicted
+values, the second is transformed uncertainty, and the optional third list is raw
+uncertainty:
 
 ```json
 {

@@ -206,6 +206,37 @@ def test_surrogate_values_can_omit_raw_uncertainty(tmp_path, _patch_upload):
     _patch_upload.assert_called_once_with("surrogate.json")
 
 
+def test_surrogate_values_accepts_expanded_dial_payload(tmp_path, _patch_upload):
+    s3_uploader._uploader._data_dir = tmp_path
+
+    _endpoints_mod.surrogate_values(
+        source="src1",
+        capability_name="nsdf_storage",
+        endpoint_name="surrogate_values",
+        payload={
+            "workflow_id": "workflow-1",
+            "values": [1.0, 2.0],
+            "transformed_stddevs": [0.1, 0.2],
+            "stddevs": [0.01, 0.02],
+            "dim_x": 2,
+            "bounds": [[24.0, 0.0], [0.0, 24.0]],
+            "points_to_predict": [[1.0, 2.0], [3.0, 4.0]],
+        },
+    )
+
+    data = json.loads((tmp_path / "surrogate.json").read_text())
+    assert data == {
+        "workflow_id": "workflow-1",
+        "surrogate": [1.0, 2.0],
+        "uncertainty": [0.1, 0.2],
+        "raw_uncertainty": [0.01, 0.02],
+        "dim_x": 2,
+        "bounds": [[0.0, 24.0], [0.0, 24.0]],
+        "points_to_predict": [[1.0, 2.0], [3.0, 4.0]],
+    }
+    _patch_upload.assert_called_once_with("surrogate.json")
+
+
 def test_dial_handlers_log_on_bad_payload(caplog, _patch_upload):
     _endpoints_mod.next_point(
         source="src1",

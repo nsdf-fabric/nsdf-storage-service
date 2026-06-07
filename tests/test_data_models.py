@@ -97,9 +97,67 @@ def test_surrogate_values_data_accepts_surrogate_and_uncertainty_payload():
             [0.1, 0.2],
             [0.01, 0.02],
         ],
+        "values": None,
+        "transformed_stddevs": None,
+        "stddevs": None,
+        "dim_x": None,
+        "bounds": None,
+        "points_to_predict": None,
     }
+
+
+def test_surrogate_values_data_accepts_expanded_dial_payload():
+    surrogate = SurrogateValuesData(
+        workflow_id="workflow-1",
+        values=[1.0, 2.0],
+        transformed_stddevs=[0.1, 0.2],
+        stddevs=[0.01, 0.02],
+        dim_x=2,
+        bounds=[[24.0, 0.0], [0.0, 24.0]],
+        points_to_predict=[[1.0, 2.0], [3.0, 4.0]],
+    )
+
+    assert surrogate.surrogate_values == [1.0, 2.0]
+    assert surrogate.uncertainty_values == [0.1, 0.2]
+    assert surrogate.raw_uncertainty_values == [0.01, 0.02]
+    assert surrogate.bounds == [[0.0, 24.0], [0.0, 24.0]]
 
 
 def test_surrogate_values_data_rejects_missing_uncertainty():
     with pytest.raises(ValidationError):
         SurrogateValuesData(workflow_id="workflow-1", data=[[1.0, 2.0]])
+
+
+def test_surrogate_values_data_rejects_incomplete_expanded_payload():
+    with pytest.raises(ValidationError, match="Missing expanded surrogate fields"):
+        SurrogateValuesData(
+            workflow_id="workflow-1",
+            values=[1.0, 2.0],
+            transformed_stddevs=[0.1, 0.2],
+        )
+
+
+def test_surrogate_values_data_rejects_expanded_length_mismatch():
+    with pytest.raises(ValidationError, match="lengths must match"):
+        SurrogateValuesData(
+            workflow_id="workflow-1",
+            values=[1.0, 2.0],
+            transformed_stddevs=[0.1],
+            stddevs=[0.01, 0.02],
+            dim_x=2,
+            bounds=[[0.0, 24.0], [0.0, 24.0]],
+            points_to_predict=[[1.0, 2.0], [3.0, 4.0]],
+        )
+
+
+def test_surrogate_values_data_rejects_points_that_do_not_match_dim_x():
+    with pytest.raises(ValidationError, match="points_to_predict rows"):
+        SurrogateValuesData(
+            workflow_id="workflow-1",
+            values=[1.0],
+            transformed_stddevs=[0.1],
+            stddevs=[0.01],
+            dim_x=2,
+            bounds=[[0.0, 24.0], [0.0, 24.0]],
+            points_to_predict=[[1.0]],
+        )
