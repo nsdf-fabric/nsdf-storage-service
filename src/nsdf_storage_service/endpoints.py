@@ -27,6 +27,8 @@ class MeasurementAccumulator:
         if isinstance(payload, dict):
             try:
                 normalized = NewMeasurementData.model_validate(payload).model_dump()
+                if "workflow_id" not in payload:
+                    normalized.pop("workflow_id", None)
                 if "dataset_x_size" not in payload:
                     normalized.pop("dataset_x_size", None)
                 return normalized

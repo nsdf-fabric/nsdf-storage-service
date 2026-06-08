@@ -89,6 +89,7 @@ endpoint `new_measurement`, with payload:
 
 ```json
 {
+  "workflow_id": "workflow-id",
   "dataset_x": [
     [1.0, 2.0],
     [3.0, 4.0]

@@ -15,6 +15,7 @@ def test_new_measurement_data_accepts_data_service_payload():
     )
 
     dumped = measurement.model_dump()
+    assert dumped["workflow_id"] is None
     assert dumped["dataset_x"] == [[1.0, 2.0], [3.0, 4.0]]
     assert dumped["dataset_y"] == [69.1, 69.2]
     assert dumped["dataset_x_size"] is None
@@ -186,3 +187,14 @@ def test_new_measurement_data_accepts_dataset_x_size():
     )
 
     assert measurement.dataset_x_size == 2
+
+
+def test_new_measurement_data_accepts_workflow_id():
+    measurement = NewMeasurementData(
+        workflow_id="workflow-1",
+        dataset_x=[[1.0, 2.0], [3.0, 4.0]],
+        dataset_y=[69.1, 69.2],
+        dim_x=2,
+    )
+
+    assert measurement.workflow_id == "workflow-1"
