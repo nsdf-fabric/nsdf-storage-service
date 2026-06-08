@@ -14,6 +14,7 @@ class NewMeasurementData(BaseModel):
 
     dataset_x: list[list[float]] | None = None
     dataset_y: list[float] | None = None
+    dataset_x_size: int | None = Field(default=None, ge=0)
     backend: str = "sklearn"
     kernel: Literal["rbf", "matern", "linear"] = "rbf"
     bounds: list[list[float]] = Field(default_factory=lambda: [[-47.33, 26.17], [-255.3, -242.3]])
@@ -98,6 +99,7 @@ class NextPointData(BaseModel):
     """Next point response returned by DIAL get_next_point."""
 
     workflow_id: str
+    dataset_x_size: int | None = Field(default=None, ge=0)
     data: list[float] = Field(min_length=1)
 
 
@@ -105,9 +107,11 @@ class SurrogateValuesData(BaseModel):
     """Surrogate values response returned by DIAL get_surrogate_values."""
 
     workflow_id: str
+    dataset_x_size: int | None = Field(default=None, ge=0)
     data: list[list[float]] | None = None
     values: list[float] | None = None
     transformed_stddevs: list[float] | None = None
+    transformed_stddevs_avg: float | None = None
     stddevs: list[float] | None = None
     dim_x: int | None = None
     bounds: list[list[float]] | None = None

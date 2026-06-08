@@ -18,8 +18,8 @@ experiment loop:
 
 The `data.json` file is overwritten on every `new_measurement` message because
 that payload already contains the full `dataset_x` and `dataset_y` history.
-The service also groups next-point results by workflow in `next_x.json`; surrogate grids
-are stored as the latest payload in `surrogate.json`.
+The service writes only the latest next-point result to `next_x.json`; surrogate
+grids are stored as the latest payload in `surrogate.json`.
 
 ## Installation
 
@@ -78,8 +78,8 @@ The client connects to the same broker, and sends a single
 - `describe()` — Returns a short description of the service behavior
 - `new_measurement(NewMeasurementData)` — Writes the full DIAL workflow snapshot
   to `data.json` and uploads to S3
-- `next_point(NextPointData)` — Appends a DIAL next-point vector to the matching
-  workflow in `next_x.json` and uploads to S3
+- `next_point(NextPointData)` — Writes the latest DIAL next-point vector to
+  `next_x.json` and uploads to S3
 - `surrogate_values(SurrogateValuesData)` — Writes the latest DIAL surrogate and
   uncertainty values to `surrogate.json` and uploads to S3
 - `status()` — Returns `"Up"`
@@ -94,6 +94,7 @@ endpoint `new_measurement`, with payload:
     [3.0, 4.0]
   ],
   "dataset_y": [69.1, 69.2],
+  "dataset_x_size": 2,
   "backend": "sklearn",
   "kernel": "rbf",
   "bounds": [
@@ -114,22 +115,21 @@ DIAL next-point payloads should use the DIAL response shape from
 ```json
 {
   "workflow_id": "workflow-id",
+  "dataset_x_size": 2,
   "data": [1.0, 2.0]
 }
 ```
 
-The persisted `next_x.json` groups received vectors by `workflow_id`:
+The persisted `next_x.json` stores the latest received next point:
 
 ```json
-[
-  {
-    "workflow_id": "workflow-id",
-    "data": [
-      [1.0, 2.0],
-      [3.0, 4.0]
-    ]
-  }
-]
+{
+  "workflow_id": "workflow-id",
+  "dataset_x_size": 2,
+  "data": [
+    [1.0, 2.0]
+  ]
+}
 ```
 
 DIAL surrogate payloads should use the expanded DIAL response shape from
@@ -138,8 +138,10 @@ DIAL surrogate payloads should use the expanded DIAL response shape from
 ```json
 {
   "workflow_id": "workflow-id",
+  "dataset_x_size": 2,
   "values": [1.0, 2.0],
   "transformed_stddevs": [0.1, 0.2],
+  "transformed_stddevs_avg": 0.15,
   "stddevs": [0.01, 0.02],
   "dim_x": 2,
   "bounds": [
@@ -226,6 +228,9 @@ Every S3 upload writes both the latest object and a timestamped copy in UTC:
 `data.json` plus `data_YYYYMMDDTHHMMSSZ.json`, `surrogate.json` plus
 `surrogate_YYYYMMDDTHHMMSSZ.json`, and `next_x.json` plus
 `next_x_YYYYMMDDTHHMMSSZ.json`.
+When a payload includes `dataset_x_size`, only the timestamped S3 copy adds that
+value after the UTC timestamp, for example `data_YYYYMMDDTHHMMSSZ_2.json`,
+`surrogate_YYYYMMDDTHHMMSSZ_2.json`, and `next_x_YYYYMMDDTHHMMSSZ_2.json`.
 
 ## Running With the Test Client
 

@@ -52,13 +52,14 @@ class S3Uploader:
         """Return full object key"""
         return path.join(self._prefix, file)
 
-    def timestamped_file_name(self, file: str) -> str:
+    def timestamped_file_name(self, file: str, dataset_x_size: int | None = None) -> str:
         """Return the timestamped object name for a stable JSON file."""
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         file_path = Path(file)
-        return f"{file_path.stem}_{timestamp}{file_path.suffix}"
+        size_suffix = "" if dataset_x_size is None else f"_{dataset_x_size}"
+        return f"{file_path.stem}_{timestamp}{size_suffix}{file_path.suffix}"
 
-    def upload_file(self, file: str) -> bool:
+    def upload_file(self, file: str, dataset_x_size: int | None = None) -> bool:
         """Upload a local file to the configured S3 bucket"""
         if self._client is None:
             logger.debug("S3 client not configured; skipping upload of %s", file)
@@ -70,7 +71,7 @@ class S3Uploader:
             return False
 
         object_key = self.object_key(file)
-        timestamped_file = self.timestamped_file_name(file)
+        timestamped_file = self.timestamped_file_name(file, dataset_x_size)
         timestamped_object_key = self.object_key(timestamped_file)
         try:
             self._client.upload_file(str(local_path), self._bucket, object_key)
@@ -102,6 +103,6 @@ def uploader_data_dir() -> Path:
     return _uploader._data_dir
 
 
-def upload_file(object_key: str) -> bool:
+def upload_file(object_key: str, dataset_x_size: int | None = None) -> bool:
     """Upload file to s3"""
-    return _uploader.upload_file(object_key)
+    return _uploader.upload_file(object_key, dataset_x_size)

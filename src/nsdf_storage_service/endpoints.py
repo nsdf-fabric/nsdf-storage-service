@@ -26,7 +26,10 @@ class MeasurementAccumulator:
         """Validate and dump payload as a dict, warn on mismatch."""
         if isinstance(payload, dict):
             try:
-                return NewMeasurementData.model_validate(payload).model_dump()
+                normalized = NewMeasurementData.model_validate(payload).model_dump()
+                if "dataset_x_size" not in payload:
+                    normalized.pop("dataset_x_size", None)
+                return normalized
             except ValueError:
                 logger.warning(
                     "Received new_measurement payload that does not match expected model"
@@ -100,43 +103,16 @@ class MeasurementAccumulator:
 
         if isinstance(normalized_payload, dict):
             normalized_payload = self._to_snapshot_payload(normalized_payload)
+            dataset_x_size = normalized_payload.get("dataset_x_size")
             data_file = s3_uploader.uploader_data_dir() / "data.json"
             data_file.write_text(json.dumps(normalized_payload, indent=2, allow_nan=True) + "\n")
 
-            s3_uploader.upload_file("data.json")
+            s3_uploader.upload_file("data.json", dataset_x_size=dataset_x_size)
         else:
             logger.warning("Unexpected payload type: %s", type(normalized_payload).__name__)
 
 
 class DialResultStorage:
-    def __init__(self) -> None:
-        self._next_point_workflows: list[dict[str, Any]] = []
-        self._next_points_initialized = False
-
-    def _load_existing_next_points(self) -> None:
-        if self._next_points_initialized:
-            return
-
-        output_file = s3_uploader.uploader_data_dir() / NEXT_X_FILE
-        if output_file.exists():
-            try:
-                data = json.loads(output_file.read_text())
-                if isinstance(data, list):
-                    self._next_point_workflows = data
-                    logger.info(
-                        "Restored %d next-point workflows from %s",
-                        len(data),
-                        output_file,
-                    )
-                else:
-                    logger.warning(
-                        "Existing %s has unexpected structure; starting fresh", NEXT_X_FILE
-                    )
-            except (json.JSONDecodeError, ValueError):
-                logger.warning("Existing %s is corrupt; starting fresh", NEXT_X_FILE)
-
-        self._next_points_initialized = True
-
     def _normalize_next_point(self, payload: INTERSECT_RESPONSE_VALUE) -> dict[str, Any] | None:
         if isinstance(payload, dict):
             try:
@@ -144,6 +120,7 @@ class DialResultStorage:
                 return {
                     "workflow_id": next_point.workflow_id,
                     "data": next_point.data,
+                    "dataset_x_size": next_point.dataset_x_size,
                 }
             except ValueError:
                 logger.warning("Received next_point payload that does not match expected model")
@@ -163,6 +140,10 @@ class DialResultStorage:
                     "surrogate": surrogate_values.surrogate_values,
                     "uncertainty": surrogate_values.uncertainty_values,
                 }
+                if surrogate_values.dataset_x_size is not None:
+                    normalized["dataset_x_size"] = surrogate_values.dataset_x_size
+                if surrogate_values.transformed_stddevs_avg is not None:
+                    normalized["transformed_stddevs_avg"] = surrogate_values.transformed_stddevs_avg
                 raw_uncertainty = surrogate_values.raw_uncertainty_values
                 if raw_uncertainty is not None:
                     normalized["raw_uncertainty"] = raw_uncertainty
@@ -203,27 +184,19 @@ class DialResultStorage:
         if normalized_payload is None:
             return
 
-        self._load_existing_next_points()
-
         workflow_id = normalized_payload["workflow_id"]
         next_point = normalized_payload["data"]
-        for workflow in self._next_point_workflows:
-            if workflow.get("workflow_id") == workflow_id:
-                workflow.setdefault("data", []).append(next_point)
-                break
-        else:
-            self._next_point_workflows.append(
-                {
-                    "workflow_id": workflow_id,
-                    "data": [next_point],
-                }
-            )
+        dataset_x_size = normalized_payload.get("dataset_x_size")
+        workflow = {
+            "workflow_id": workflow_id,
+            "data": [next_point],
+        }
+        if dataset_x_size is not None:
+            workflow["dataset_x_size"] = dataset_x_size
 
         output_file = s3_uploader.uploader_data_dir() / NEXT_X_FILE
-        output_file.write_text(
-            json.dumps(self._next_point_workflows, indent=2, allow_nan=True) + "\n"
-        )
-        s3_uploader.upload_file(NEXT_X_FILE)
+        output_file.write_text(json.dumps(workflow, indent=2, allow_nan=True) + "\n")
+        s3_uploader.upload_file(NEXT_X_FILE, dataset_x_size=dataset_x_size)
 
     def handle_surrogate_values(
         self,
@@ -248,7 +221,10 @@ class DialResultStorage:
 
         output_file = s3_uploader.uploader_data_dir() / SURROGATE_FILE
         output_file.write_text(json.dumps(normalized_payload, indent=2, allow_nan=True) + "\n")
-        s3_uploader.upload_file(SURROGATE_FILE)
+        s3_uploader.upload_file(
+            SURROGATE_FILE,
+            dataset_x_size=normalized_payload.get("dataset_x_size"),
+        )
 
 
 _accumulator = MeasurementAccumulator()
