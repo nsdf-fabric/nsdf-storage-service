@@ -111,6 +111,7 @@ class SurrogateValuesData(BaseModel):
     data: list[list[float]] | None = None
     values: list[float] | None = None
     transformed_stddevs: list[float] | None = None
+    transformed_stddevs_avg: float | None = None
     stddevs: list[float] | None = None
     dim_x: int | None = None
     bounds: list[list[float]] | None = None

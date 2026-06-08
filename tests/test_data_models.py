@@ -108,6 +108,7 @@ def test_surrogate_values_data_accepts_surrogate_and_uncertainty_payload():
         ],
         "values": None,
         "transformed_stddevs": None,
+        "transformed_stddevs_avg": None,
         "stddevs": None,
         "dim_x": None,
         "bounds": None,
@@ -121,6 +122,7 @@ def test_surrogate_values_data_accepts_expanded_dial_payload():
         dataset_x_size=2,
         values=[1.0, 2.0],
         transformed_stddevs=[0.1, 0.2],
+        transformed_stddevs_avg=0.15,
         stddevs=[0.01, 0.02],
         dim_x=2,
         bounds=[[24.0, 0.0], [0.0, 24.0]],
@@ -132,6 +134,7 @@ def test_surrogate_values_data_accepts_expanded_dial_payload():
     assert surrogate.raw_uncertainty_values == [0.01, 0.02]
     assert surrogate.bounds == [[0.0, 24.0], [0.0, 24.0]]
     assert surrogate.dataset_x_size == 2
+    assert surrogate.transformed_stddevs_avg == 0.15
 
 
 def test_surrogate_values_data_rejects_missing_uncertainty():

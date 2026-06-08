@@ -306,6 +306,7 @@ def test_surrogate_values_accepts_expanded_dial_payload(tmp_path, _patch_upload)
             "dataset_x_size": 5,
             "values": [1.0, 2.0],
             "transformed_stddevs": [0.1, 0.2],
+            "transformed_stddevs_avg": 0.15,
             "stddevs": [0.01, 0.02],
             "dim_x": 2,
             "bounds": [[24.0, 0.0], [0.0, 24.0]],
@@ -317,6 +318,7 @@ def test_surrogate_values_accepts_expanded_dial_payload(tmp_path, _patch_upload)
     assert data == {
         "workflow_id": "workflow-1",
         "dataset_x_size": 5,
+        "transformed_stddevs_avg": 0.15,
         "surrogate": [1.0, 2.0],
         "uncertainty": [0.1, 0.2],
         "raw_uncertainty": [0.01, 0.02],

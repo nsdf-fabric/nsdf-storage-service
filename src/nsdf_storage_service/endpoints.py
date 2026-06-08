@@ -170,6 +170,8 @@ class DialResultStorage:
                 }
                 if surrogate_values.dataset_x_size is not None:
                     normalized["dataset_x_size"] = surrogate_values.dataset_x_size
+                if surrogate_values.transformed_stddevs_avg is not None:
+                    normalized["transformed_stddevs_avg"] = surrogate_values.transformed_stddevs_avg
                 raw_uncertainty = surrogate_values.raw_uncertainty_values
                 if raw_uncertainty is not None:
                     normalized["raw_uncertainty"] = raw_uncertainty

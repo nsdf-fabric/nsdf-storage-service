@@ -144,6 +144,7 @@ DIAL surrogate payloads should use the expanded DIAL response shape from
   "dataset_x_size": 2,
   "values": [1.0, 2.0],
   "transformed_stddevs": [0.1, 0.2],
+  "transformed_stddevs_avg": 0.15,
   "stddevs": [0.01, 0.02],
   "dim_x": 2,
   "bounds": [
