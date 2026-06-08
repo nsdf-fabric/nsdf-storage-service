@@ -3,10 +3,11 @@ from .data_models import NewMeasurementData, NextPointData, SurrogateValuesData
 from . import endpoints
 
 
-def _dump_without_unset_dataset_size(payload):
+def _dump_without_unset_optional_metadata(payload):
     dumped = payload.model_dump()
-    if "dataset_x_size" not in payload.model_fields_set:
-        dumped.pop("dataset_x_size", None)
+    for field in ("workflow_id", "dataset_x_size"):
+        if field not in payload.model_fields_set:
+            dumped.pop(field, None)
     return dumped
 
 
@@ -33,7 +34,7 @@ class NsdfStorageCapability(IntersectBaseCapabilityImplementation):
             source="direct-message",
             capability_name=self.intersect_sdk_capability_name,
             endpoint_name="new_measurement",
-            payload=_dump_without_unset_dataset_size(measurement),
+            payload=_dump_without_unset_optional_metadata(measurement),
         )
 
     @intersect_message()
@@ -43,7 +44,7 @@ class NsdfStorageCapability(IntersectBaseCapabilityImplementation):
             source="direct-message",
             capability_name=self.intersect_sdk_capability_name,
             endpoint_name="next_point",
-            payload=_dump_without_unset_dataset_size(next_point),
+            payload=_dump_without_unset_optional_metadata(next_point),
         )
 
     @intersect_message()

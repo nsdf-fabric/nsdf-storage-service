@@ -12,6 +12,7 @@ class NewMeasurementData(BaseModel):
     - Event point shape (labx + labz + center_value)
     """
 
+    workflow_id: str | None = None
     dataset_x: list[list[float]] | None = None
     dataset_y: list[float] | None = None
     dataset_x_size: int | None = Field(default=None, ge=0)

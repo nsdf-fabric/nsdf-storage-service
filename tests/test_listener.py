@@ -39,6 +39,7 @@ def test_new_measurement_creates_data_file(tmp_path, _patch_upload):
     assert data["backend"] == payload["backend"]
     assert data["kernel"] == payload["kernel"]
     assert data["bounds"] == payload["bounds"]
+    assert "workflow_id" not in data
     _patch_upload.assert_called_once_with("data.json", dataset_x_size=None)
 
 
@@ -64,6 +65,30 @@ def test_new_measurement_persists_and_uploads_explicit_dataset_x_size(tmp_path, 
     data = json.loads((tmp_path / "data.json").read_text())
     assert data["dataset_x_size"] == 8
     _patch_upload.assert_called_once_with("data.json", dataset_x_size=8)
+
+
+def test_new_measurement_persists_explicit_workflow_id(tmp_path, _patch_upload):
+    s3_uploader._uploader._data_dir = tmp_path
+    payload = {
+        "workflow_id": "workflow-1",
+        "dataset_x": [[1.0, 2.0], [3.0, 4.0]],
+        "dataset_y": [69.1, 69.2],
+        "backend": "sklearn",
+        "kernel": "rbf",
+        "bounds": [[0.0, 10.0], [0.0, 10.0]],
+        "dim_x": 2,
+    }
+
+    _endpoints_mod.new_measurement(
+        source="src1",
+        capability_name="nsdf_storage",
+        endpoint_name="new_measurement",
+        payload=payload,
+    )
+
+    data = json.loads((tmp_path / "data.json").read_text())
+    assert data["workflow_id"] == "workflow-1"
+    _patch_upload.assert_called_once_with("data.json", dataset_x_size=None)
 
 
 def test_new_measurement_does_not_infer_dataset_x_size(tmp_path, _patch_upload):
