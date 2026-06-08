@@ -120,16 +120,19 @@ DIAL next-point payloads should use the DIAL response shape from
 }
 ```
 
-The persisted `next_x.json` stores the latest received next point:
+The persisted `next_x.json` stores the latest received next point as a
+single-entry list:
 
 ```json
-{
-  "workflow_id": "workflow-id",
-  "dataset_x_size": 2,
-  "data": [
-    [1.0, 2.0]
-  ]
-}
+[
+  {
+    "workflow_id": "workflow-id",
+    "dataset_x_size": 2,
+    "data": [
+      [1.0, 2.0]
+    ]
+  }
+]
 ```
 
 DIAL surrogate payloads should use the expanded DIAL response shape from

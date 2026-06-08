@@ -195,7 +195,7 @@ class DialResultStorage:
             workflow["dataset_x_size"] = dataset_x_size
 
         output_file = s3_uploader.uploader_data_dir() / NEXT_X_FILE
-        output_file.write_text(json.dumps(workflow, indent=2, allow_nan=True) + "\n")
+        output_file.write_text(json.dumps([workflow], indent=2, allow_nan=True) + "\n")
         s3_uploader.upload_file(NEXT_X_FILE, dataset_x_size=dataset_x_size)
 
     def handle_surrogate_values(
